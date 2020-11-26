@@ -19,6 +19,7 @@
 .cent {
 	text-align: center;
 	margin: auto;
+	width:500px;
 }
 
 .big {
@@ -90,6 +91,11 @@ h3 {
   height: 30px;
   width : 120px;
   margin: auto;
+}
+
+/* Output results table */
+.table {
+	max-width: 400px;
 }
 
 
