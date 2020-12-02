@@ -11,10 +11,12 @@ runtime: shiny
 ---
 ```{r setup, include=FALSE}
 library(ggplot2)
-library(shinyjs)
+#library(shinyjs)
 library(shiny)
 library(gsDesign)
-library(formattable)
+#library(formattable)
+library(dplyr)
+library(tidyr)
 ```
 
 ```{r varsAndFunctions, include=FALSE}
@@ -45,7 +47,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         power = pwr,
         alternative = sides
       )$n
-
+      
       # 1ST DESIGN ----
       # initital gsDesign object with evenly spaced checkpoints,
       # used to calculate the maximum samples we would require
@@ -59,9 +61,9 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         sfl = sfPower,
         sflpar = lowBnd,
         n.fix = n_fixed,
-        beta = 1 - pwr,
-        delta0 = cvrA,
-        delta1 = cvrB
+        beta = 1 - pwr
+        # delta0 = cvrA,
+        # delta1 = cvrB
       )
       
       # MAX SAMPLE PER VARIATION ----
@@ -81,6 +83,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           if (b == 0 || c > checkpoints[b]) {
             checkpoints[a] <- c
           }
+            
         }
       }
       
@@ -97,9 +100,9 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           sflpar = lowBnd,
           n.fix = n_fixed,
           n.I = checkpoints,
-          beta = 1 - pwr,
-          delta0 = cvrA,
-          delta1 = cvrB
+          beta = 1 - pwr
+          # delta0 = cvrA,
+          # delta1 = cvrB
         )
       
       
@@ -108,29 +111,27 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
 }
 
 getz <- function (a,b,c,d,e) {
-  round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = e), digits = 2)
+  round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)
 }
 ```
 
 #### Design and execute a frequentist sequential test using this handy calculator.
-[Markdown Cheat sheet](https://www.rstudio.com/wp-content/uploads/2016/03/rmarkdown-cheatsheet-2.0.pdf)
-
-To do:
 
 * Clean up tails input references
-* Better labels for power table
-* Better lables for sample size table
-* Add results line to boundary table
+* Fix quick load, make elements optional
+* Fix if input results N is greater than next checkpoint, it breaks
 * Format everything!!!
 * Add comments and clean up
+* Add confidence interval visualizations?
 
 ```{r quickLoadShortcut}
-div(
-  div(class = "ql", "Load a prior configuration: "),
-  div(class = "ql", textInput("shortcut", NULL, width = "130px")),
-  div(class = "ql", actionLink("loadShortcut", label = "Load Shortcut")),
-)
 uiOutput('fixedLink')
+
+div(
+  div(class = "ql", "To load a prior configuration: "),
+  div(class = "ql", textInput("shortcut", NULL, width = "130px")),
+  h4(class = "ql", actionLink("loadShortcut", label = "Load Shortcut")),
+)
 ```
 
 ```{r quickLoadUtilities, include=FALSE}
@@ -167,59 +168,75 @@ uiOutput('fixedLink')
   
 # LOAD SHORTCUT ----
   observeEvent(input$loadShortcut, {
+    
     shortcutList <- unlist(strsplit(input$shortcut,","))
+    req(length(shortcutList) > 9)
+    
     updateNumericInput(session, 'alpha', value = shortcutList[1])
     updateNumericInput(session, 'pwr', value = shortcutList[2])
     updateNumericInput(session, 'cvra', value = shortcutList[3])
     updateNumericInput(session, 'mde', value = shortcutList[4])
     updateNumericInput(session, 'tls', value = shortcutList[5])
-    updateNumericInput(session, 'nonf', value = shortcutList[6])
+    updateNumericInput(session, 'nonf', value = shortcutList[6]) 
     updateNumericInput(session, 'traff', value = shortcutList[7])
-    updateNumericInput(session, 'checknum', value = shortcutList[8])
+    updateNumericInput(session, 'checknum', value = shortcutList[8]) 
     updateNumericInput(session, 'conversions', value = shortcutList[9])
     updateNumericInput(session, 'dayNum', value = shortcutList[10])
-    r1 <- strsplit(shortcutList[11],";", fixed = TRUE)
-    r2 <- r1[[1]]
-    r3 <- list()
-    r4 <- list()
-    for (i in 1:length(r2)) {
-      r3 <- strsplit(r2[i],"-",fixed = TRUE)
-      r3 <- c(r3[[1]])
-      rl <- paste0("checkpoint",r3[1])
-      r4[[rl]] <- r3
+    if (!is.na(shortcutList[11])) {
+      r1 <- strsplit(shortcutList[11],";", fixed = TRUE)
+      r2 <- r1[[1]]
+      r3 <- list()
+      r4 <- list()
+      for (i in 1:length(r2)) {
+        r3 <- strsplit(r2[i],"-",fixed = TRUE)
+        r3 <- c(r3[[1]])
+        rl <- paste0("checkpoint",r3[1])
+        r4[[rl]] <- r3
+      }
+      reactiveResultsVars$rslt <- r4
+      
     }
-    reactiveResultsVars$rslt <- r4
 
   })
 ```
 
-Row {.tabset data-height=300} 
+Row {.tabset data-height=350} 
 -----------------------------
 
 ### Test Configuration
-Enter your desired `confidence level`. This is ($1 - \alpha$) where $\alpha$ is your nominal false positive error rate.
 
 ```{r}
-numericInput("alpha",
-             label = NULL, value = 95, min = 50, max = 99.9, step = 5)
+div(class = "input-two-c",
+    h5("Confidence Level"),
+    div(numericInput("alpha",
+                 label = NULL, value = 95, min = 50, max = 99.9, step = 5)),
+    
+    h5("Power"),
+    div(numericInput(
+      "pwr",
+      label = NULL,
+      value = 80,
+      min = 1,
+      max = 99,
+      step = 5
+    )),
+    
+    h5("Tails"),
+    div(
+      radioButtons("tls",
+             NULL,
+             choices = list("1-tail test for superiority" = 1, 
+                            "2-tail test for any difference" = 2
+                            ),
+             selected = 1)
+    )
 
-```
+    )
 
-Enter power
-```{r}
-numericInput(
-  "pwr",
-  label = NULL,
-  value = 80,
-  min = 1,
-  max = 99,
-  step = 5
-)
-```
-
-Minimum detectable effect
-```{r}
-numericInput(
+div(class = "input-two-c",
+    h5("Minimum detectable effect"),
+    div(
+    numericInput(
   "mde",
   label = NULL,
   value = 10,
@@ -227,54 +244,21 @@ numericInput(
   max = 1000,
   step = 1
 )
-```
+      
+    ),
 
-### Superiority vs Non-inferiorty
-Tails
-```{r}
-radioButtons("tls",
-             NULL,
-             choices = list("1-tail test for superiority" = 1, 
-                            "2-tail for any difference" = 2,
-                            "1-tail test with non-inferiority margin" = 3),
-             selected = 1)
-```
-
-Non-inferiority margin
-```{r}
-numericInput("nonf",
+h5("Non-inferiority margin (optional)"),
+div(
+  numericInput("nonf",
              NULL,
              value = 0,
              min = 0,
              max = 50)
-```
+),
 
-
-### Current Traffic
-Traffic volume here
-```{r}
-numericInput(inputId = "traff",
-             label = NULL,
-             value = 10000,
-             step = 1000)
-```
-
-Conversions
-```{r}
-numericInput("conversions", NULL, value=1000, step = 100)
-```
-
-How many days of traffic is this (we recommend using 4 weeks minimum)
-```{r}
-numericInput("dayNum", NULL, value=7, step = 1)
-```
-
-
-Base conversion rate
-
-
-```{r}
-numericInput(
+h5("Base conversion rate"),
+div(
+  numericInput(
   "cvra",
   label = NULL,
   value = 10,
@@ -282,33 +266,61 @@ numericInput(
   max = 100,
   step = 1
 )
+)
+)
+
 ```
-(calculated conversion rate =
-```{r}
-textOutput("currentCvr", inline = TRUE)
-```
-%)
+
+
+### Current Traffic
 
 ```{r}
-output$currentCvr = renderText({input$conversions/input$traff*100})
+div(class = "input-two-c",
+    h5("Enter current traffic volume to test area"),
+    div(numericInput(inputId = "traff",
+             label = NULL,
+             value = 10000,
+             step = 1000)),
+    
+    h5("Enter current conversion volume to test area"),
+    div(numericInput("conversions", NULL, value=1000, step = 100)),
+    
+    h5("How many days of traffic is this?"),
+    div(
+      numericInput("dayNum", NULL, value=7, step = 1)
+    ),
+    
+    h5("Calculated base conversion rate:"),
+    div(
+      textOutput("currentCvr", inline = TRUE)
+    )
+
+    )
+
+```
+
+
+```{r}
+output$currentCvr = renderText({paste(input$conversions/input$traff*100,"%")})
 
 ```
 
 
 ### Inputs help
-`Confidence` = the thingy thing
+`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive error rate.
 
 ### Advanced
 Upper boundary sensitivity
 Lower boundary sensitivity
 Boundary type
 
-Row {data-height=200}  
+Row {data-height=150}  
 -----------------------------
 
 ### Planned analyses
-* input checkins number
-Number of checkins you want to make
+
+#### How many times do you want to peek on the test results? 
+(Include final analysis)
 ```{r}
 numericInput(
   "checknum",
@@ -333,26 +345,47 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   }
   reactiveDesignVars$fixedn <- testDesign$n.fix*2
   reactiveDesignVars$seqn <- tail(testDesign$n.I,1)*2
-  reactiveDesignVars$pwrplot <- plot.gsDesign(testDesign, plottype = 2)
-  reactiveDesignVars$deltaplot <- plot.gsDesign(testDesign, plottype = 6)
-  reactiveDesignVars$boundplot <- plot.gsDesign(testDesign, plottype = 3)
   reactiveDesignVars$fulldesign <- testDesign
   reactiveDesignVars$table$timing <- testDesign$timing
   reactiveDesignVars$table$samples <- testDesign$n.I * 2
   reactiveDesignVars$table$lower <- testDesign$lower$bound
   reactiveDesignVars$table$upper <- testDesign$upper$bound
   
-    # Evaluate results for boundary crossing
+  # Sequence of deltas based on MDE
+  reactiveDesignVars$deltas <- seq(-1,2.5,.25)*input$mde-input$nonf
+  thetas <- seq(-1,2.5,.25)*testDesign$delta
+  reactiveDesignVars$probOb <- gsProbability(d = testDesign, theta = thetas)
+
+  # DF for results outputs
+  reactiveDesignVars$table$complete <- data.frame(
+    times = testDesign$timing,
+    samples = testDesign$n.I * 2,
+    lower = testDesign$lower$bound,
+    upper = testDesign$upper$bound,
+    results = 0
+  )
+  
+  try({
+    
+  })
+  # Evaluate results for boundary crossing
   if (length(reactiveResultsVars$rslt) > 0) {
+    for (i in 1:length(reactiveResultsVars$rslt)) {
+      currRslt <- reactiveResultsVars$rslt[i]
+      currChk <- currRslt[[1]][1]
+      currZ <- currRslt[[1]][6]
+      reactiveDesignVars$table$complete[currChk, 5] = currZ
+    }
+    
     for (i in 1:length(reactiveResultsVars$rslt)) {
       d <- reactiveResultsVars$rslt[i]
       a <- as.numeric(d[[1]][1])
       b <- d[[1]][6]
-      if (b > reactiveDesignVars$table$upper[a]) {
+      if (b > testDesign$upper$bound[a]) {
         reactiveResultsVars$win <-
           list(checkpoint = a, outcome = "efficacy")
         break
-      } else if (b < reactiveDesignVars$table$lower[a]) {
+      } else if (b < testDesign$lower$bound[a]) {
         reactiveResultsVars$win <-
           list(checkpoint = a, outcome = "futility")
       }
@@ -360,22 +393,22 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   }
 })
 
-output$fixedN <- renderText({round(reactiveDesignVars$fixedn)})
-output$fixedDays <- renderText({round(reactiveDesignVars$fixedn/(input$traff/input$dayNum))})
-output$seqN <- renderText({round(reactiveDesignVars$seqn)})
-output$maxDays <- renderText({round(reactiveDesignVars$seqn/(input$traff/input$dayNum))})
-output$diff <- renderText({round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100)})
-# Probably need to make the plot a UI output so can be customized/styled in here better
-output$pwrPlot <- renderPlot(reactiveDesignVars$pwrplot, height = 350)
-output$deltaPlot <- renderPlot(reactiveDesignVars$deltaplot, height = 350)
-output$boundPlot <- renderPlot(reactiveDesignVars$boundplot, height = 350)
+
 output$fulldesign <- renderPrint(reactiveDesignVars$fulldesign)
 
 ```
 
 ### Sample size comparison
+```{r sampleOutputs, include=FALSE}
+output$fixedN <- renderText({round(reactiveDesignVars$fixedn)})
+output$fixedDays <- renderText({round(reactiveDesignVars$fixedn/(input$traff/input$dayNum))})
+output$seqN <- renderText({round(reactiveDesignVars$seqn)})
+output$maxDays <- renderText({round(reactiveDesignVars$seqn/(input$traff/input$dayNum))})
+output$diff <- renderText({round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100)})
+```
 
-```{r samples}
+
+```{r}
 div(
   h5("Fixed-horizon sample size: ",
      strong(textOutput("fixedN", inline = TRUE)),
@@ -402,19 +435,92 @@ div(
 ```
 
 
-Row {data-height=400}
+Row {data-height=450}
 -----------------------------
 ### Power analysis
-Power chart input here
+This chart plots the likelihood of crossing a decision boundary at each checkpoint for different effect sizes.
+
+```{r powerPlot}
+
+# output$pwrPlot <- renderUI({
+output$pwrPlot <- renderPlot({
+  probOb <- reactiveDesignVars$probOb
+  deltas <- reactiveDesignVars$deltas/100
+  
+  upProb <- data.frame(probOb$upper$prob) %>%
+    mutate(cumsum(.)) %>%
+    t() %>%
+    data.frame()
+
+  
+  colnames(upProb) <- paste0("Upper_Checkpoint",seq(1,ncol(upProb)))
+  upProb <- mutate(upProb, "Effects" = deltas)
+
+  loProb <- data.frame(probOb$lower$prob) %>%
+    mutate(cumsum(.)) %>%
+    t() %>%
+    data.frame()
+
+  colnames(loProb) <- paste0("Lower_Checkpoint",seq(1,ncol(loProb)))
+  loProb <- mutate(loProb, "Effects" = deltas)
+
+  
+  df <- merge(upProb,loProb) %>%
+    pivot_longer(cols = !contains("Effects"), names_to = c("Boundary","Checkpoint"), names_pattern = "(.*)_Checkpoint(.*)", values_to = "Probability") 
+  
+  ggplot(df, aes(x=Effects, y=Probability, color=Boundary, linetype=Checkpoint)) +
+    geom_line() +
+    theme_light() +
+    scale_y_continuous(labels = scales::percent, n.breaks = 10) +
+    scale_x_continuous(labels = scales::percent, n.breaks = 8)
+  
+}, height = 350)
+
+```
+
 ```{r}
-#div(verbatimTextOutput("fulldesign"))
 div(plotOutput("pwrPlot"))
 ```
 
-### Sample size by delta
-Chart showing the requisite sample size by difference in cvrs
+### Expected sample size by effect size
+This chart displays the expected sample size by the actual effect size of the treatment.
+
+```{r expectedSamplePlot}
+output$samplePlot <- renderPlot({
+  nList <- reactiveDesignVars$table$samples
+  probOb <- reactiveDesignVars$probOb
+  deltas <- reactiveDesignVars$deltas/100
+  
+  upProb <- data.frame(probOb$upper$prob*nList) %>%
+   t() %>%
+   data.frame() %>%
+   mutate(expLength = rowSums(.)) %>%
+   mutate(effects = deltas) 
+  
+  loProb <- data.frame(probOb$lower$prob*nList) %>%
+   t() %>%
+   data.frame() %>%
+   mutate(expLength = rowSums(.)) %>%
+   mutate(effects = deltas)
+
+  df <- data.frame(Effects = deltas, ExpSample = upProb$expLength+loProb$expLength)
+
+  spline_df <- as.data.frame(spline(df$Effects, df$ExpSample))
+ 
+  ggplot(df, aes(x = Effects, y = ExpSample)) +
+    geom_line(data = spline_df, aes(x = x, y = y), color = "cyan3") +
+    labs(y="Expected Sample Size") +
+    theme_light() +
+    scale_x_continuous(labels = scales::percent, n.breaks = 8) + 
+    scale_y_continuous(labels = scales::comma)
+  
+}, height = 350)
+
+```
+
+
 ```{r}
-plotOutput("deltaPlot")
+plotOutput("samplePlot")
 ```
 
 Row  {data-height=700}
@@ -424,81 +530,74 @@ Row  {data-height=700}
 
 #### Control Experience
 ```{r}
-div(class='cent',
-  h5(class='three-c',
-      'Conversions'),
-  h5(class='three-c',
-      'Visitors'),
-  h5(class='three-c',
-      'Conversion rate')
-)
-
-div(class='cent',
-  div(class='three-c',
-      numericInput("aConversions", label = NULL, value = "100", step = 10)
-      ),
-  div(class='three-c',
-      numericInput("aTraffic", label = NULL, value = "1000", step = 100)
-      ),
-  div(class='three-c',
-      textOutput("aRate", inline = TRUE)
+div(class='three-c',
+  h5('Conversions'),
+  div(numericInput("aConversions", label = NULL, value = "100", step = 10)
       )
 )
+
+div(class='three-c',
+  h5('Visitors'),
+  div(numericInput("aTraffic", label = NULL, value = "1000", step = 100)
+      )
+    )
+
+div(class='three-c',
+  h5('Conversion rate'),
+  div(textOutput("aRate", inline = TRUE)
+      )
+  
+)
+
 
 ```
 
 #### Test Experience 
 ```{r}
-div(
-  class = 'cent',
-  h5(class = 'three-c',
-     'Conversions'),
-  h5(class = 'three-c',
-     'Visitors'),
-  h5(class = 'three-c',
-     'Conversion rate')
+
+div(class='three-c',
+  h5('Conversions'),
+  div(numericInput("bConversions", label = NULL, value = "110", step = 10)
+      )
 )
 
-div(
-  class = 'cent',
-  div(class = 'three-c',
-      numericInput(
-        "bConversions", label = NULL, value = "110", step = 10
-      )),
-  div(class = 'three-c',
-      numericInput(
-        "bTraffic", label = NULL, value = "1000", step = 100
-      )),
-  div(class = 'three-c',
-      textOutput("bRate", inline = TRUE))
+div(class='three-c',
+  h5('Visitors'),
+  div(numericInput("bTraffic", label = NULL, value = "1000", step = 100)
+      )
+    )
+
+div(class='three-c',
+  h5('Conversion rate'),
+  div(textOutput("bRate", inline = TRUE)
+      )
+  
 )
 
 ```
 
 #### Calculations 
-```{r}
-div(class = 'cent',
-    h5(class = 'three-c',
-       'Delta'),
-    h5(class = 'three-c',
-       'Z-score'),
-    h5(class = 'three-c',
-           '% of Sample size'))
 
-div(class = "cent",
-    div(class = "big three-c",
-        textOutput("rateDiff")),
-    div(class = "big three-c",
-        textOutput("zscore")),
-    div(class = "big three-c",
-        textOutput("proportion")))
+```{r}
+div(class = 'three-c',
+    h5('Delta'),
+    div(class = "big", textOutput("rateDiff")))
+
+div(class = 'three-c',
+    h5('Z-score'),
+    div(class = "big", textOutput("zscore")))
+
+div(class = 'three-c',
+    h5('% of Sample size'),
+    div(class = "big", textOutput("proportion")))
+    
 ```
 
 #### Checkpoint select - enter the results for the right checkpoint
 ```{r}
 div(class = "cent",
-    div(class = "two-c", htmlOutput("checkSelect")),
-    div(class = "two-c", actionLink("addResults", "Add checkpoint results")))
+    div(class = "slider", htmlOutput("checkSelect")),
+    h4(class = "slider", actionLink("addResults", "Add checkpoint results")))
 ```
 
 ```{r resultsOutputs, include=FALSE}
@@ -514,9 +613,9 @@ output$checkSelect <- renderUI({
               pre = "Checkpoint number: ")
 })
 
-output$bRate <- renderText({input$bConversions / input$bTraffic})
+output$bRate <- renderText({paste0(input$bConversions / input$bTraffic * 100, "%")})
 
-output$aRate <- renderText({input$aConversions / input$aTraffic})
+output$aRate <- renderText({paste0(input$aConversions / input$aTraffic * 100, "%")})
 
 output$rateDiff <- renderText({
   req(input$aConversions > 1)
@@ -535,14 +634,14 @@ output$rateDiff <- renderText({
 observeEvent(c(input$aConversions, input$bConversions, input$aTraffic, input$bTraffic),{
   req(input$aConversions > 1)
   req(input$bConversions > 1)
-  req(input$aTraffic > 10)
-  req(input$bTraffic > 10)
+  req(input$aTraffic > input$aConversions)
+  req(input$bTraffic > input$bConversions)
   
   a <- input$aConversions
   b <- input$bConversions
   c <- input$aTraffic
   d <- input$bTraffic
-  e <- if (input$tls == 3) input$nonf/100 else 0
+  e <- if (input$nonf > 0) input$nonf/100 else 0
   
   reactiveResultsVars$z <- getz(a,b,c,d,e)
   
@@ -591,52 +690,50 @@ observeEvent(input$checkpoint, {
 
 
 ### Result analysis
-```{r tableOutput, include=FALSE}
-output$resultTable <- renderTable({
-  results <- data.frame(
-    times = reactiveDesignVars$table$timing,
-    samples = reactiveDesignVars$table$samples,
-    lower = reactiveDesignVars$table$lower,
-    upper = reactiveDesignVars$table$upper,
-    results = 0
-  )
-  
-  try({
-    for (i in 1:length(reactiveResultsVars$rslt)) {
-      d <- reactiveResultsVars$rslt[i]
-      a <- d[[1]][1]
-      b <- d[[1]][6]
-      results[a, 5] = b
-    }
-  })
-  
-  
-  results
-}) 
-```
+
 
 ```{r}
-div(class="table", tableOutput("resultTable"))
-```
-
-#### Test outcome
-```{r}
-div(class = "big",
-  textOutput("outcome")
+  div(class = "boundIntro",
+  "The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date."
 )
+
+  div(class = "ztable", tableOutput("resultTable"))
+  
+
+```
+
+```{r}
+div(class = "confidence",
+  div(class = "big",
+  textOutput("outcome")
+),
 div(class = "big",
   textOutput("confidence")
-)
+),
 div(class = "big",
   textOutput("interval")
+),
+
+h4(actionLink("clear","Clear all results"))
 )
+
+
 ```
 
-Click carefully 
+
+
 ```{r}
-div(
-  actionLink("clear","Clear all results")
-)
+div(class = "bounds",
+plotOutput("boundPlot")
+    )
+```
+
+```{r tableOutput, include=FALSE}
+output$resultTable <- renderTable({
+
+  reactiveDesignVars$table$complete
+
+  }, striped = TRUE, hover = TRUE, bordered = TRUE) 
 ```
 
 ```{r clearResults, include=FALSE}
@@ -646,11 +743,6 @@ observeEvent(input$clear, {
   reactiveResultsVars$rslt <- NULL
   reactiveResultsVars$win <- NULL
 }, ignoreInit = TRUE)
-```
-
-
-```{r}
-div(class="table", plotOutput("boundPlot"))
 ```
 
 ```{r confidenceCalcFunction, include=FALSE}
@@ -709,7 +801,7 @@ observeEvent(reactiveResultsVars$win$outcome, {
 
   ciCalc <- calcConfidence(Ns,Zs,xA,xB,nA,nB,ciZ,tls)
   
-  reactiveResultsVars$win$conf <- ciCalc[1]
+  reactiveResultsVars$win$conf <- ciCalc[1] 
   reactiveResultsVars$win$ciLow <- ciCalc[2]
   reactiveResultsVars$win$ciHigh <- ciCalc[3]
 
@@ -718,309 +810,55 @@ observeEvent(reactiveResultsVars$win$outcome, {
 output$outcome <- renderText({
   req(!is.null(reactiveResultsVars$win))
   
-  reactiveResultsVars$win$outcome
+  if (reactiveResultsVars$win$outcome == "efficacy") {
+    return("The test experince has passed the efficacy boundary.")
+  } else {
+    return("The test experience has passed the futility boundary.")
+  }
 })
 
 output$confidence <- renderText({
   req(!is.null(reactiveResultsVars$win$conf))
   
-  reactiveResultsVars$win$conf
+  paste0("Confidence = ",reactiveResultsVars$win$conf[[1]])
 })
 
-output$confidence <- renderText({
+output$interval <- renderText({
   req(!is.null(reactiveResultsVars$win$ciLow))
   
-  paste("Estimated difference = ",reactiveResultsVars$win$ciLow," - ",reactiveResultsVars$win$ciHigh)
+  paste("Estimated difference = ",reactiveResultsVars$win$ciLow," to ",reactiveResultsVars$win$ciHigh)
 })
 ```
+
+```{r resultsPlot, include=FALSE}
+output$boundPlot <- renderPlot({
+
+  df <- reactiveDesignVars$table$complete
+  df$results[df$results == 0] <- NA 
+  days <- round(input$traff/input$dayNum)
+  df$estDays <- round(df$samples / days)
+
+
+
+  ggplot(df, aes(x = samples)) +
+    geom_line(mapping = aes(y=upper), color = "cyan3") +
+    geom_line(mapping = aes(y=lower), color = "brown1") +
+    geom_line(mapping = aes(y=results), color = "chartreuse3", linetype = 2) +
+    geom_point(mapping = aes(y=results), color = "chartreuse3") +
+    theme_light() +
+    labs(x="Sample Size", y="Z-score") +
+    scale_x_continuous(labels = scales::comma) +
+    scale_y_continuous(n.breaks = 8) 
+    
+
+  }, height = 350)
+
+
+```
+
 
 Row
 -----------------------------
 Thanks for coming, [leave us feedback](https://docs.google.com/forms/d/e/1FAIpQLSfHiI150WWY1cTTE1UaKHKuNxoeL9zxck1v-UZWRkWl1eVsQw/viewform).
-
-Row
------------------------------
-### Reference material
-```{r calculations, include=FALSE}
-# 
-#   # DATA TABLE ----
-#   # Creates a table of key data from the design output
-#   designSum <- data.frame(
-#     finalDesign$timing,
-#     finalDesign$n.I * 2,
-#     finalDesign$lower$bound,
-#     finalDesign$upper$bound
-#   )
-#   
-#   # PVALUES ----
-#   # Adds pvalues and formats the table a bit
-#   names(designSum) <- c('checkPct','checkN','lowerZ','upperZ')
-#   designSum$'checkPct' <- percent(designSum$'checkPct', 0)
-#   designSum$'lowerZ' <- round(designSum$'lowerZ', digits = 2)
-#   designSum$'upperZ' <- round(designSum$'upperZ', digits = 2)
-#   designSum$'upperPval' <- round(1-pnorm(designSum$'upperZ'), digits = 4)
-#   designSum$'lowerPval' <- round(1-pnorm(designSum$'lowerZ'), digits = 4)
-# 
-#   
-#   # PAYLOAD ----
-#   # compiles final payload
-#   payload <-  list(designSum, finalDesign, n_fixed, n_sequential, testChange)
-#   
-#   return(
-#     payload
-#   )
-# 
-# 
-# 
-# testResults <- data.frame()
-#   fixedInt <- 0
-#   zlist <- c()
-#   nlist <- c()
-#   ilist <- c()
-#   cvsAlist <- c()
-#   cvsBlist <- c()
-#   nAlist <- c()
-#   nBlist <- c()
-#   nonfM <- 0
-#   
-# 
-#       # FORMAT OUTPUTS ----
-#       # formats sample outputs before going into the outputs
-#       fixed <- design[[3]] * 2
-#       fixed <- comma(fixed, digits = 0)
-#       seq <- design[[4]] * 2
-#       seq <- comma(seq, digits = 0)
-#       n1 <- paste0('Fixed-horizon sample size:  ', fixed)
-#       n2 <- paste0('Sequential max sample size: ', seq)
-#       n3 <- paste0('Max increase: ', design[[5]], '%')
-#       
-#       # SAMPLE OUTPUTS ----
-#       #output$fixedn <- renderText(paste(fixed))
-#       output$sequentialn <- renderText(paste(n1, n2, n3, sep = "\n"))
-#       #output$nchange <- renderText(paste(design[[5]], '%'))
-#       
-#     
-#       # TABLE OUTPUT ----
-#       tbl1 <- as.data.frame(design[[1]])
-#       tbl1$checkN <- comma(tbl1$checkN, digits = 0)
-#       
-#       daysList <- c()
-#       daysIndex <- 1
-#       for (i in tbl1$checkN) {
-#         daysList[daysIndex] <- paste(ceiling(tbl1$checkN[daysIndex] / (input$traff / 7)),'Days')
-#         daysIndex <- daysIndex + 1
-#       }
-#       tbl1$days <- daysList
-#       tbl1 <- tbl1[,c('checkPct','checkN','days','lowerZ','upperZ')]
-# 
-#       tbl1$checkPct <- lapply(tbl1$checkPct, as.character)
-#       tbl1$checkN <- lapply(tbl1$checkN, as.character)
-#       
-#       names(tbl1) <-
-#         c('% of Test',
-#           'Total Sample',
-#           'Est. Days',
-#           'Lower Z-score',
-#           'Upper Z-score')
-#           #'Upper Pval',
-#           #'Lower Pval',
-#           
-#       
-#       
-#       #output$table <- renderPrint(tbl1)
-#       
-#       #tbl2 <- tbl1
-#       
-#       
-#       output$seqTable <- renderTable(tbl1, 
-#                                      digits = c(0,0,0,0,2,2), 
-#                                      align = 'c', 
-#                                      hover = TRUE, 
-#                                      display = c('d','s','s','s','f','f'),
-#                                      width = '100%'
-#                                      )
-#       
-#       
-#       
-#       # OUTCOME CHECK ----
-#       # na, inconclusive, win, lose
-#       
-#       rsltsRows <- nrow(testResults)
-#       
-#       if (rsltsRows < 1) {
-#         outcome <- "na"
-#         
-#       } else if (testResults[rsltsRows,'zscores']>design[[1]]$upperZ[rsltsRows]) {
-#         outcome <- "winner"
-# 
-#       } else if (testResults[rsltsRows,'zscores']<design[[1]]$lowerZ[rsltsRows]) {
-#         outcome <- "loser"
-#         
-#       } else {
-#         outcome <- "inconclusive"
-#       }
-# 
-#       
-#       # ZSCORE PLOT ----
-#       output$bounds <- renderPlot({
-#         designPlot(design[[1]], testResults, outcome) 
-# 
-#       })
-#     
-#     
-#   
-# 
-#   # DESIGN PLOT FUNCTION ----
-#   designPlot <- function(seqTable, rsltsDf, outcome) {
-#     lim1 <- head(seqTable$checkN,1)/4
-#     lim2 <- tail(seqTable$checkN,1)+lim1
-#     rsltsRows <- nrow(rsltsDf)
-#     
-#     seqPlot <- ggplot(
-#       seqTable, 
-#       aes(checkN),
-#       size = 8
-#     ) + geom_line(
-#       mapping = aes(y = upperZ),
-#       color = '#456990',
-#       size = 1.25,
-#       stat = "identity"
-#     ) + geom_line(
-#       mapping = aes(y = lowerZ),
-#       stat = "identity",
-#       color = '#e95420',
-#       size = 1.25
-#     ) + labs(
-#       x = "Sample Size",
-#       y = "Z-score"
-#     ) + geom_text(
-#       mapping = aes(x = checkN, y = lowerZ, label = lowerZ),
-#       size = 5.5,
-#       nudge_y = -.2
-#     ) + geom_text(
-#       mapping = aes(x = checkN, y = upperZ, label = upperZ),
-#       size = 5.5,
-#       nudge_y = .2
-#     ) + geom_point(
-#       mapping = aes(x = checkN, y = lowerZ),
-#       colour = "#e95420",
-#       shape = 20,
-#       size = 3
-#     ) + geom_point(
-#       mapping = aes(x = checkN, y = upperZ),
-#       colour = "#456990",
-#       shape = 20,
-#       size = 3
-#     ) +  scale_x_continuous(
-#       breaks = comma(seqTable$checkN, digits = 0)
-#     ) + coord_cartesian(
-#       expand = TRUE, 
-#       clip = "off"
-#     ) + theme_light(
-#       base_size = 16
-#     ) + theme(
-#       text = element_text(family = 'mono', face = "plain")
-#     ) + theme(
-#       axis.title.x = element_text(vjust = -0.99)
-#     ) + theme(
-#       panel.grid.minor.x = element_blank()
-#     ) + theme(
-#       plot.background = element_rect(fill = "#FCFCFC")
-#     ) 
-#     
-#     
-#     rsltsLayers <- list(
-#       geom_point(data = rsltsDf,
-#                  mapping = aes(samples, zscores),
-#                  color = '#49beaa',
-#                  stat = "identity"
-#       ), geom_text(data = rsltsDf,
-#                    mapping = aes(samples, zscores, label = zscores),
-#                    size = 5,
-#                    colour = "#3c362a",
-#                    nudge_y = .3
-#                    )
-# 
-#     )
-#     
-#     rsltsLine <- list(
-#       geom_line(data = rsltsDf,
-#                              mapping = aes(samples, zscores),
-#                              stat = "identity",
-#                              color = '#49beaa',
-#                              size = 1.25
-#                 )
-#     )
-#     
-#    
-#     
-#     loser <- list(
-#       geom_text(
-#         mapping = aes(x=lim2, y=lowerZ[1]-1, label="Boundary crossed", family="mono"),
-#         size = 7,
-#         hjust = 1,
-#         colour = "#49beaa"
-#       )
-#     )
-#     
-#       loser2tail <- list(
-#         geom_text(
-#           mapping = aes(x=lim2, y=lowerZ[1] - 1.5, label=paste0('Confidence Level: ',adjCi[1]), family="mono"),
-#           size = 5,
-#           hjust = 1,
-#           colour = "#3c362a"
-#       ), 
-#       geom_text(
-#         mapping = aes(x=lim2, y=lowerZ[1] - 1.9, label=paste0('Confidence Interval: ',adjCi[2], ' - ', adjCi[3]), family="mono"),
-#         size = 5,
-#         hjust = 1,
-#         colour = "#3c362a"
-#       ))
-#     
-#     winner <- list(
-#       geom_text(
-#         mapping = aes(x=lim2, y=upperZ[1]+2, label="Boundary crossed", family="mono"),
-#         size = 7,
-#         hjust = 1,
-#         colour = "#49beaa"
-#       ),
-#       geom_text(
-#         mapping = aes(x=lim2, y=upperZ[1] + 1.5, label=paste0('Confidence Level: ',adjCi[1]), family="mono"),
-#         size = 5,
-#         hjust = 1,
-#         colour = "#3c362a"
-#       ),
-#       geom_text(
-#         mapping = aes(x=lim2, y=upperZ[1] + 1.1, label=paste0('Confidence Interval: ',adjCi[2], ' - ', adjCi[3]), family="mono"),
-#         size = 5,
-#         hjust = 1,
-#         colour = "#3c362a"
-#       ) 
-#     )
-#     
-#     
-#     
-#     if (length(rsltsDf)>0) {
-#       seqPlot <- seqPlot + rsltsLayers
-#       
-#       if (nrow(rsltsDf)>1) {
-#         seqPlot <- seqPlot + rsltsLine
-#       }
-#       
-#       if(outcome == 'winner') {
-#         seqPlot <- seqPlot + winner
-#       } else if (outcome == 'loser' && input$tls > 1) {
-#         seqPlot <- seqPlot + loser + loser2tail
-#       } else if (outcome == 'loser') {
-#         seqPlot <- seqPlot + loser
-#       }
-#       
-#     } 
-#     seqPlot
-#   }
-#   
-
-
-```
 
 
