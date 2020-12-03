@@ -9,6 +9,13 @@ output:
     vertical_layout: scroll
 runtime: shiny
 ---
+```{r toDos}
+# * Fix if input results N is greater than next checkpoint, it breaks
+# * Add comments and clean up
+# * Add confidence interval visualizations?
+```
+
+
 ```{r setup, include=FALSE}
 library(ggplot2)
 #library(shinyjs)
@@ -17,6 +24,7 @@ library(gsDesign)
 #library(formattable)
 library(dplyr)
 library(tidyr)
+library(gt)
 ```
 
 ```{r varsAndFunctions, include=FALSE}
@@ -115,20 +123,13 @@ getz <- function (a,b,c,d,e) {
 }
 ```
 
-#### Design and execute a frequentist sequential test using this handy calculator.
-
-* Clean up tails input references
-* Fix quick load, make elements optional
-* Fix if input results N is greater than next checkpoint, it breaks
-* Format everything!!!
-* Add comments and clean up
-* Add confidence interval visualizations?
+#### Design and execute a frequentist sequential test 
 
 ```{r quickLoadShortcut}
 uiOutput('fixedLink')
 
 div(
-  div(class = "ql", "To load a prior configuration: "),
+  h5(class = "ql", "Load configuration shortcut: "),
   div(class = "ql", textInput("shortcut", NULL, width = "130px")),
   h4(class = "ql", actionLink("loadShortcut", label = "Load Shortcut")),
 )
@@ -200,7 +201,7 @@ div(
   })
 ```
 
-Row {.tabset data-height=350} 
+Row {.tabset data-height=320} 
 -----------------------------
 
 ### Test Configuration
@@ -275,33 +276,31 @@ div(
 ### Current Traffic
 
 ```{r}
-div(class = "input-two-c",
+
+div(class = "three-c",
     h5("Enter current traffic volume to test area"),
     div(numericInput(inputId = "traff",
              label = NULL,
              value = 10000,
-             step = 1000)),
-    
-    h5("Enter current conversion volume to test area"),
-    div(numericInput("conversions", NULL, value=1000, step = 100)),
-    
-    h5("How many days of traffic is this?"),
-    div(
-      numericInput("dayNum", NULL, value=7, step = 1)
-    ),
-    
-    h5("Calculated base conversion rate:"),
-    div(
-      textOutput("currentCvr", inline = TRUE)
-    )
+             step = 1000)))
 
-    )
+div(class = "three-c",
+    h5("Enter current conversion volume to test area"),
+    div(numericInput("conversions", NULL, value=1000, step = 100)))  
+
+div(class = "three-c",
+    h5("Calculated base conversion rate:"),
+    div(class = "big", textOutput("currentCvr", inline = TRUE)))
+
+div(class = "three-c",
+    h5("How many days of traffic is this?"),
+    div(numericInput("dayNum", NULL, value=7, step = 1)))
 
 ```
 
 
 ```{r}
-output$currentCvr = renderText({paste(input$conversions/input$traff*100,"%")})
+output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1),"%")})
 
 ```
 
@@ -337,12 +336,15 @@ numericInput(
 # SEQUENTIAL TEST DESIGN
 
 observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$tls, input$checknum, reactiveResultsVars$rslt),{
+  
   reactiveDesignVars$tls <- as.numeric(input$tls)
+  
   if (is.null(reactiveResultsVars$rslt)) {
     testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum)
   } else  {
     testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum, reactiveResultsVars$rslt)
   }
+  
   reactiveDesignVars$fixedn <- testDesign$n.fix*2
   reactiveDesignVars$seqn <- tail(testDesign$n.I,1)*2
   reactiveDesignVars$fulldesign <- testDesign
@@ -360,6 +362,7 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   reactiveDesignVars$table$complete <- data.frame(
     times = testDesign$timing,
     samples = testDesign$n.I * 2,
+    days = testDesign$n.I * 2 / (input$traff/input$dayNum),
     lower = testDesign$lower$bound,
     upper = testDesign$upper$bound,
     results = 0
@@ -374,7 +377,7 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
       currRslt <- reactiveResultsVars$rslt[i]
       currChk <- currRslt[[1]][1]
       currZ <- currRslt[[1]][6]
-      reactiveDesignVars$table$complete[currChk, 5] = currZ
+      reactiveDesignVars$table$complete[currChk, 6] = currZ
     }
     
     for (i in 1:length(reactiveResultsVars$rslt)) {
@@ -393,8 +396,6 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   }
 })
 
-
-output$fulldesign <- renderPrint(reactiveDesignVars$fulldesign)
 
 ```
 
@@ -429,7 +430,7 @@ div(
   h5("That's a maximum increase of ",
      strong(textOutput("diff", inline = TRUE)),
      strong("% "),
-     " This is most likely to occur if the true effect size is between H0 and H1.")
+     " See the Expected Sample Size chart below to see what test duration is expected to be based on different effect sizes.")
 )
 
 ```
@@ -490,7 +491,8 @@ output$samplePlot <- renderPlot({
   nList <- reactiveDesignVars$table$samples
   probOb <- reactiveDesignVars$probOb
   deltas <- reactiveDesignVars$deltas/100
-  
+  nperDay <- round(input$traff/input$dayNum) 
+
   upProb <- data.frame(probOb$upper$prob*nList) %>%
    t() %>%
    data.frame() %>%
@@ -512,7 +514,8 @@ output$samplePlot <- renderPlot({
     labs(y="Expected Sample Size") +
     theme_light() +
     scale_x_continuous(labels = scales::percent, n.breaks = 8) + 
-    scale_y_continuous(labels = scales::comma)
+    scale_y_continuous(labels = scales::comma) +
+    scale_y_continuous(sec.axis = sec_axis(~ ./nperDay, name = "Estimated Duration (Days)"))
   
 }, height = 350)
 
@@ -523,7 +526,7 @@ output$samplePlot <- renderPlot({
 plotOutput("samplePlot")
 ```
 
-Row  {data-height=700}
+Row  
 -----------------------------
 
 ### Enter results
@@ -691,13 +694,12 @@ observeEvent(input$checkpoint, {
 
 ### Result analysis
 
+The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date.
 
 ```{r}
-  div(class = "boundIntro",
-  "The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date."
-)
 
-  div(class = "ztable", tableOutput("resultTable"))
+
+  div(class = "ztable", gt_output("resultTable"))
   
 
 ```
@@ -717,23 +719,29 @@ div(class = "big",
 h4(actionLink("clear","Clear all results"))
 )
 
-
-```
-
-
-
-```{r}
 div(class = "bounds",
 plotOutput("boundPlot")
     )
 ```
 
+
 ```{r tableOutput, include=FALSE}
-output$resultTable <- renderTable({
+output$resultTable <- render_gt({
 
-  reactiveDesignVars$table$complete
+  gt(reactiveDesignVars$table$complete) %>%
+    cols_label(times = "% Complete",
+               samples = "Total Sample",
+               days = "Est. Days",
+               lower = "Lower",
+               upper = "Upper",
+               results = "Outcomes") %>%
+    fmt_percent(columns = vars(times), decimals = 0) %>%
+    fmt_number(columns = vars(samples, days), decimals = 0) %>%
+    fmt_number(columns = vars(lower,upper,results), decimals = 2) %>%
+    tab_spanner(columns = vars(lower,upper), label = "Decision Boundaries")
 
-  }, striped = TRUE, hover = TRUE, bordered = TRUE) 
+  
+  }) #, striped = TRUE, hover = TRUE, bordered = TRUE
 ```
 
 ```{r clearResults, include=FALSE}
@@ -835,8 +843,9 @@ output$boundPlot <- renderPlot({
 
   df <- reactiveDesignVars$table$complete
   df$results[df$results == 0] <- NA 
-  days <- round(input$traff/input$dayNum)
-  df$estDays <- round(df$samples / days)
+  #days <- round(input$traff/input$dayNum)
+  #df$estDays <- round(df$samples / days)
+  nperDay <- round(input$traff/input$dayNum)
 
 
 
@@ -844,11 +853,15 @@ output$boundPlot <- renderPlot({
     geom_line(mapping = aes(y=upper), color = "cyan3") +
     geom_line(mapping = aes(y=lower), color = "brown1") +
     geom_line(mapping = aes(y=results), color = "chartreuse3", linetype = 2) +
-    geom_point(mapping = aes(y=results), color = "chartreuse3") +
+    #geom_point(mapping = aes(y=results), color = "chartreuse3") +
     theme_light() +
     labs(x="Sample Size", y="Z-score") +
     scale_x_continuous(labels = scales::comma) +
-    scale_y_continuous(n.breaks = 8) 
+    scale_x_continuous(sec.axis = sec_axis(~./nperDay, name = "Estimated Duration (Days)")) +
+    scale_y_continuous(n.breaks = 8) +
+    geom_label(y=df$upper, label = round(df$upper,2)) +
+    geom_label(y=df$lower, label = round(df$lower,2)) +
+    geom_label(y=df$results, label = round(df$results,2), color = "chartreuse3")
     
 
   }, height = 350)

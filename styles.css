@@ -115,8 +115,7 @@ h3 {
 
 /* Output results table */
 .ztable {
-	width: 85%;
-	margin: 20px auto;
+	margin: auto;
 }
 
 .boundIntro {
@@ -124,7 +123,7 @@ h3 {
 }
 
 #section-result-analysis {
-	width: 49%;
+	/* width: 49%; */
 }
 
 
