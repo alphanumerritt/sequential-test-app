@@ -18,7 +18,6 @@ runtime: shiny
 # Support multiple comparison adjustment
 ```
 
-
 ```{r setup, include=FALSE}
 library(ggplot2)
 library(shiny)
@@ -120,17 +119,16 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
 getz <- function (a,b,c,d,e) {round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)}
 ```
 
-#### Design and execute a frequentist sequential test 
-
 ```{r}
-# Link to current configuration
-uiOutput('fixedLink')
 
 # Input to load a configuration from shortcut
 div(
   h5(class = "ql", "Load configuration shortcut: "),
-  div(class = "ql", textInput("shortcut", NULL, width = "130px")),
-  h4(class = "ql", actionLink("loadShortcut", label = "Load Shortcut")),
+  div(class = "ql", textInput("shortcut", NULL, width = "100px")),
+  h5(style = "display:inline-block", actionLink("loadShortcut", label = "Load Shortcut")),
+  
+  # Link to current configuration
+  uiOutput('fixedLink')
 )
 ```
 
@@ -175,8 +173,8 @@ observeEvent(input$loadShortcut, {
   req(length(shortcutList) > 9)
   
   # Update all the inputs with the string values
-  updateNumericInput(session, 'alpha', value = shortcutList[1])
-  updateNumericInput(session, 'pwr', value = shortcutList[2])
+  updateSliderInput(session, 'alpha', value = shortcutList[1])
+  updateSliderInput(session, 'pwr', value = shortcutList[2])
   updateNumericInput(session, 'cvra', value = shortcutList[3])
   updateNumericInput(session, 'mde', value = shortcutList[4])
   updateNumericInput(session, 'tls', value = shortcutList[5])
@@ -205,7 +203,7 @@ observeEvent(input$loadShortcut, {
 })
 ```
 
-Row {.tabset data-height=320} 
+Row {.tabset data-height=360} 
 -----------------------------
 
 ### Test Configuration
@@ -214,17 +212,13 @@ Row {.tabset data-height=320}
 # 2 column screen - Column 1
 div(class = "input-two-c",
     h5("Confidence Level"),
-    div(numericInput("alpha",
-                 label = NULL, value = 95, min = 50, max = 99.9, step = 5)),
+    div(sliderInput("alpha",
+                 label = NULL, value = 95, min = 50, max = 99, step = 1, round = TRUE)),
     
     h5("Power"),
-    div(numericInput(
+    div(sliderInput(
       "pwr",
-      label = NULL,
-      value = 80,
-      min = 1,
-      max = 99,
-      step = 5
+      label = NULL, value = 80, min = 50, max = 99, step = 1, round = TRUE
     )),
     
     h5("Tails"),
@@ -333,17 +327,14 @@ Row {data-height=150}
 
 ### Planned analyses
 
-#### How many times do you want to "peek" and analyze test results? 
-(Including final analysis)
+##### How many times do you want to "peek" and analyze test results? 
+
 ```{r}
-numericInput(
-  "checknum",
-  label = NULL,
-  min = 2,
-  max = 1000,
-  value = 4,
-  step = 1
-)
+div(
+div(style="display:inline-block;", numericInput(
+  "checknum", label = NULL, min = 2, max = 1000, value = 4, step = 1, width = 100
+)),
+div(style="display:inline-block; padding-left: 5px;", "(Including final analysis)"))
 ```
 
 
@@ -418,9 +409,9 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
 
 ### Sample size comparison
 ```{r sampleOutputs, include=FALSE}
-output$fixedN <- renderText({round(reactiveDesignVars$fixedn)})
+output$fixedN <- renderText({format(round(reactiveDesignVars$fixedn), big.mark=",", scientific = FALSE)})
 output$fixedDays <- renderText({round(reactiveDesignVars$fixedn/(input$traff/input$dayNum))})
-output$seqN <- renderText({round(reactiveDesignVars$seqn)})
+output$seqN <- renderText({format(round(reactiveDesignVars$seqn), big.mark=",", scientific = FALSE)})
 output$maxDays <- renderText({round(reactiveDesignVars$seqn/(input$traff/input$dayNum))})
 output$diff <- renderText({round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100)})
 ```
@@ -549,8 +540,8 @@ Row
 
 ### Enter results
 
-#### Control Experience
 ```{r}
+h3("Control Experience")
 div(class='three-c',
   h5('Conversions'),
   div(numericInput("aConversions", label = NULL, value = "100", step = 10)
@@ -571,9 +562,8 @@ div(class='three-c',
 
 ```
 
-#### Test Experience 
 ```{r}
-
+h3("Test Experience")
 div(class='three-c',
   h5('Conversions'),
   div(numericInput("bConversions", label = NULL, value = "110", step = 10)
@@ -594,9 +584,9 @@ div(class='three-c',
 
 ```
 
-#### Calculations 
 
 ```{r}
+h3("Calculations")
 div(class = 'three-c',
     h5('Difference'),
     div(class = "big", textOutput("rateDiff")))
@@ -611,8 +601,10 @@ div(class = 'three-c',
     
 ```
 
-#### Checkpoint selection: Which analysis do these results apply to?
 ```{r}
+h3("Checkpoint selection")
+h5(style="margin:10px;",
+   "Which analysis do these results apply to?")
 div(class = "slider",
     div(htmlOutput("checkSelect")),
     h4(actionLink("addResults", "Add results to the analysis for the selected checkpoint")))
@@ -734,10 +726,12 @@ div(class = "big",
 div(class = "big",
   textOutput("interval")
 ),
-
+br(),
 # Clear results linke
 h4(actionLink("clear","Clear all results"))
 )
+br()
+
 
 # Boundary Plot
 div(class = "bounds",

@@ -3,11 +3,20 @@
 body {
 	max-width: 1500px;
 	margin: auto;
+	padding-top: 4px;
+  	background-color: #f4f4f4;
 }
 
 /* Power analysis plot */
 #pwrPlot {
 	max-width: 700px;
+}
+
+/* Shortcut link */
+#fixedLink {
+	width: 50%;
+	text-align: right;
+	display: inline-block;
 }
 
 /* 2-column input divs */
@@ -22,21 +31,21 @@ body {
 /* Divs intended to fit 3 side-by-side like results inputs */
 .three-c {
 	display: inline-block;
-	margin: 10px;
+	margin: 10px 0 10px 10px;
 	width: 25% !important;
 }
 
 /* Quick load elements */
 .ql {
 	display: inline-block;
-	margin: 10px;
+	margin: 5px 10px 0 5px;
 }
 
 /* Checkpoint selector + CTA in Results */
 .slider {
 	width: 50% !important;
 	vertical-align: top;
-	margin: auto;
+	margin: 10px auto;
 	text-align: center;
 
 }
@@ -48,18 +57,10 @@ body {
 	margin: auto;
 }
 
-button {
-	padding: 5px 10px !important;
-}
 
 /* Remove the title bar */
 .navbar{
   visibility: hidden;
-}
-
-body {
-  padding-top: 4px;
-  background-color: #f4f4f4;
 }
 
 /* Set the main body/text font */
@@ -77,9 +78,23 @@ h1 {
 }
 
 h3 {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
-  text-align: center;
+	font-size: 18px;
+	margin: 10px 5px 0px 5px;
+
 }
+
+/* Some input and section titles */
+h4 {
+  font-family: "adelle-sans",helvetica,arial,sans-serf;
+  margin: 0 5px;
+  font-weight: 500;
+}
+
+/* Input labels */
+h5 {
+	font-size: 16px;
+}
+
 
 /* Boundary plot */
 .bounds {
@@ -90,8 +105,7 @@ h3 {
 /* Titles at the top of each panel */
 .chart-title {
   font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 18px;
-  font-style: italic;
+  font-size: 16px;
   font-weight: bold;
   color: #444;
 }
@@ -103,12 +117,6 @@ h3 {
 	text-align: center;
 }
 
-/* Center the numeric sliders 
-.shiny-input-container:not(.shiny-input-container-inline) {
-  margin-left: auto;
-  margin-right: auto;
-}*/
-
 /* Overall app title */
 .navbar-brand {
   font-size: 22px;
@@ -119,11 +127,11 @@ h3 {
 .form-control {
   font-size: 17px;
   padding: 0 10px;
-  background-color: #bdd4f9;
+  background-color: #d6dae0;
   border: none;
   height: 30px;
   max-width : 100px;
-  margin-left: 20px;
+  border-radius: 5px;
 }
 
 /* Output results table */
@@ -131,12 +139,6 @@ h3 {
 	margin: auto;
 }
 
-.boundIntro {
-	padding: 20px 5px;
-}
 
-#section-result-analysis {
-	/* width: 49%; */
-}
 
 
