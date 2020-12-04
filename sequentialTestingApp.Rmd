@@ -10,9 +10,7 @@ output:
 runtime: shiny
 ---
 ```{r toDos}
-# * Fix if input results N is greater than next checkpoint, it breaks
-# * Add comments and clean up
-# * Add confidence interval visualizations?
+# Add confidence interval visualizations?
 # Optimize code...stop double executions if possible
 # Enable selection of single analysis?
 # Support multiple comparison adjustment
@@ -81,17 +79,31 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       multiplier <- 1/k_checks
       checkpoints <- seq(1,k_checks)*multiplier*n_sequential
       
+      # We'll use these to adjust checkpoints if necessary based on checkpoints till now
+      highCheckpt <- 0
+      chkptIndex <- 0
+      
       # If updated checkpoints were passed in based on analyses entered, plug them into the analysis here
       if (!is.null(h)) {
         for (i in 1:length(h)) {
-          a <- as.numeric(h[[i]][[1]])
-          b <- a - 1
-          c <- as.numeric(h[[i]][[3]])
-          if (b == 0 || c > checkpoints[b]) {
-            checkpoints[a] <- c
+          thisChkpt <- as.numeric(h[[i]][[1]])
+          highCheckpt <- if (thisChkpt > highCheckpt) thisChkpt else highCheckpt
+          chkptIndex <- if (thisChkpt == highCheckpt) i else chkptIndex
+          prevChkpt <- thisChkpt - 1
+          chkptN <- as.numeric(h[[i]][[3]])
+          if (prevChkpt == 0 || chkptN > checkpoints[prevChkpt]) {
+            checkpoints[thisChkpt] <- chkptN
           }
-            
         }
+        if ((k_checks - highCheckpt) > 1) {
+            nNow <- as.numeric(h[[chkptIndex]][[3]])
+            nLeft <- n_sequential - nNow
+            kLeft <- k_checks - highCheckpt
+            mult2 <- 1/kLeft
+            chksleft <- seq(1,kLeft)*mult2*nLeft+nNow
+            highCheckpt <- highCheckpt + 1
+            checkpoints[c(highCheckpt:k_checks)] <- chksleft # Refactor/replace remaining checkpoints
+          }
       }
       
       # 2ND DESIGN ----
