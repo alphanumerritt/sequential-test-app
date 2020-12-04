@@ -1,4 +1,16 @@
 
+/* limit body width just in case big screens */
+body {
+	max-width: 1500px;
+	margin: auto;
+}
+
+/* Power analysis plot */
+#pwrPlot {
+	max-width: 700px;
+}
+
+/* 2-column input divs */
 .input-two-c {
 	width:50%;
 	display: inline-block;
@@ -7,31 +19,32 @@
 
 }
 
+/* Divs intended to fit 3 side-by-side like results inputs */
 .three-c {
 	display: inline-block;
 	margin: 10px;
 	width: 25% !important;
 }
 
+/* Quick load elements */
 .ql {
 	display: inline-block;
 	margin: 10px;
 }
 
+/* Checkpoint selector + CTA in Results */
 .slider {
 	width: 50% !important;
-	vertical-align: middle;
+	vertical-align: top;
 	margin: auto;
-}
-
-.cent {
 	text-align: center;
-	padding: 20px;
+
 }
 
+/* Emphasized output text */
 .big {
 	font-size: 1.5em;
-	color: blue;
+	color: rgb(1,191,196);
 	margin: auto;
 }
 

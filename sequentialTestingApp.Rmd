@@ -13,25 +13,28 @@ runtime: shiny
 # * Fix if input results N is greater than next checkpoint, it breaks
 # * Add comments and clean up
 # * Add confidence interval visualizations?
+# Optimize code...stop double executions if possible
+# Enable selection of single analysis?
+# Support multiple comparison adjustment
 ```
 
 
 ```{r setup, include=FALSE}
 library(ggplot2)
-#library(shinyjs)
 library(shiny)
 library(gsDesign)
-#library(formattable)
 library(dplyr)
 library(tidyr)
 library(gt)
 ```
 
 ```{r varsAndFunctions, include=FALSE}
-reactiveDesignVars <- reactiveValues(fixedn = NULL, seqn = NULL) # All test design ouputs
-reactiveResultsVars <- reactiveValues(z = NULL, rslt = NULL, win = NULL) # All analysis outputs
+# These variables will be used throughout the application
+reactiveDesignVars <- reactiveValues(fixedn = NULL, seqn = NULL) # All test DESIGN ouputs
+reactiveResultsVars <- reactiveValues(z = NULL, rslt = NULL, win = NULL) # All RESULTS outputs
 reactTalesNum <- reactiveVal() # Turn "tails" radio button output to number from string
 
+# Function can be called to return a sequential design object
 createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       alph = 1 - a/100
       pwr = b/100
@@ -59,7 +62,6 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       # 1ST DESIGN ----
       # initital gsDesign object with evenly spaced checkpoints,
       # used to calculate the maximum samples we would require
-
       design = gsDesign(
         k = k_checks,
         test.type = testType,
@@ -70,8 +72,6 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         sflpar = lowBnd,
         n.fix = n_fixed,
         beta = 1 - pwr
-        # delta0 = cvrA,
-        # delta1 = cvrB
       )
       
       # MAX SAMPLE PER VARIATION ----
@@ -109,25 +109,24 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           n.fix = n_fixed,
           n.I = checkpoints,
           beta = 1 - pwr
-          # delta0 = cvrA,
-          # delta1 = cvrB
         )
       
-      
+      # Returns the whole test design object (see gsDesign)
       return(finalDesign)
 
 }
 
-getz <- function (a,b,c,d,e) {
-  round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)
-}
+# Function the can be called to return a z-score
+getz <- function (a,b,c,d,e) {round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)}
 ```
 
 #### Design and execute a frequentist sequential test 
 
-```{r quickLoadShortcut}
+```{r}
+# Link to current configuration
 uiOutput('fixedLink')
 
+# Input to load a configuration from shortcut
 div(
   h5(class = "ql", "Load configuration shortcut: "),
   div(class = "ql", textInput("shortcut", NULL, width = "130px")),
@@ -136,69 +135,74 @@ div(
 ```
 
 ```{r quickLoadUtilities, include=FALSE}
-# FIXED LINK OUTPUT ----
-  output$fixedLink <- renderUI({
-    a <- function () {
-      b <- ""      
-      try ({for (i in 1:length(reactiveResultsVars$rslt)) {
-        d <- reactiveResultsVars$rslt[i]
-        c <- paste(d[[1]], collapse = "-")
-        b <- if (nchar(b) > 1) paste(b,c, sep = ";") else c
-      }
-      })
-      return (b)
+# CONFIG SHORTCUT OUTPUT ----
+output$fixedLink <- renderUI({
+  # Function to put any entered results into a string
+  a <- function () {
+    b <- ""      
+    try ({for (i in 1:length(reactiveResultsVars$rslt)) {
+      d <- reactiveResultsVars$rslt[i]
+      c <- paste(d[[1]], collapse = "-")
+      b <- if (nchar(b) > 1) paste(b,c, sep = ";") else c
     }
-    
-    div(class="fixedLinkRow",
-        "Current configuration shortcut:",
-    paste(
-      input$alpha,
-      input$pwr,
-      input$cvra,
-      input$mde,
-      input$tls,
-      input$nonf,
-      input$traff,
-      input$checknum,
-      input$conversions,
-      input$dayNum,
-      a(),
-      sep = ","
-    ))
-  })
+    })
+    return (b)
+  }
+  
+  # Construct the string
+  div(class="fixedLinkRow",
+      "Current configuration shortcut:",
+  paste(
+    input$alpha,
+    input$pwr,
+    input$cvra,
+    input$mde,
+    input$tls,
+    input$nonf,
+    input$traff,
+    input$checknum,
+    input$conversions,
+    input$dayNum,
+    a(),
+    sep = ","
+  ))
+})
   
 # LOAD SHORTCUT ----
-  observeEvent(input$loadShortcut, {
-    
-    shortcutList <- unlist(strsplit(input$shortcut,","))
-    req(length(shortcutList) > 9)
-    
-    updateNumericInput(session, 'alpha', value = shortcutList[1])
-    updateNumericInput(session, 'pwr', value = shortcutList[2])
-    updateNumericInput(session, 'cvra', value = shortcutList[3])
-    updateNumericInput(session, 'mde', value = shortcutList[4])
-    updateNumericInput(session, 'tls', value = shortcutList[5])
-    updateNumericInput(session, 'nonf', value = shortcutList[6]) 
-    updateNumericInput(session, 'traff', value = shortcutList[7])
-    updateNumericInput(session, 'checknum', value = shortcutList[8]) 
-    updateNumericInput(session, 'conversions', value = shortcutList[9])
-    updateNumericInput(session, 'dayNum', value = shortcutList[10])
-    if (!is.na(shortcutList[11])) {
-      r1 <- strsplit(shortcutList[11],";", fixed = TRUE)
-      r2 <- r1[[1]]
-      r3 <- list()
-      r4 <- list()
-      for (i in 1:length(r2)) {
-        r3 <- strsplit(r2[i],"-",fixed = TRUE)
-        r3 <- c(r3[[1]])
-        rl <- paste0("checkpoint",r3[1])
-        r4[[rl]] <- r3
-      }
-      reactiveResultsVars$rslt <- r4
-      
+observeEvent(input$loadShortcut, {
+  # Parse out string, check to make sure it's got all the necessary inputs
+  shortcutList <- unlist(strsplit(input$shortcut,","))
+  req(length(shortcutList) > 9)
+  
+  # Update all the inputs with the string values
+  updateNumericInput(session, 'alpha', value = shortcutList[1])
+  updateNumericInput(session, 'pwr', value = shortcutList[2])
+  updateNumericInput(session, 'cvra', value = shortcutList[3])
+  updateNumericInput(session, 'mde', value = shortcutList[4])
+  updateNumericInput(session, 'tls', value = shortcutList[5])
+  updateNumericInput(session, 'nonf', value = shortcutList[6]) 
+  updateNumericInput(session, 'traff', value = shortcutList[7])
+  updateNumericInput(session, 'checknum', value = shortcutList[8]) 
+  updateNumericInput(session, 'conversions', value = shortcutList[9])
+  updateNumericInput(session, 'dayNum', value = shortcutList[10])
+  
+  # Update results (behind the scene variables) if present
+  if (!is.na(shortcutList[11])) {
+    r1 <- strsplit(shortcutList[11],";", fixed = TRUE)
+    r2 <- r1[[1]]
+    r3 <- list()
+    r4 <- list()
+    for (i in 1:length(r2)) {
+      r3 <- strsplit(r2[i],"-",fixed = TRUE)
+      r3 <- c(r3[[1]])
+      rl <- paste0("checkpoint",r3[1])
+      r4[[rl]] <- r3
     }
+    reactiveResultsVars$rslt <- r4
+    
+  }
 
-  })
+})
 ```
 
 Row {.tabset data-height=320} 
@@ -207,6 +211,7 @@ Row {.tabset data-height=320}
 ### Test Configuration
 
 ```{r}
+# 2 column screen - Column 1
 div(class = "input-two-c",
     h5("Confidence Level"),
     div(numericInput("alpha",
@@ -234,6 +239,7 @@ div(class = "input-two-c",
 
     )
 
+# 2 column screen - Column 2
 div(class = "input-two-c",
     h5("Minimum detectable effect"),
     div(
@@ -276,7 +282,7 @@ div(
 ### Current Traffic
 
 ```{r}
-
+# 3 column inputs
 div(class = "three-c",
     h5("Enter current traffic volume to test area"),
     div(numericInput(inputId = "traff",
@@ -292,6 +298,7 @@ div(class = "three-c",
     h5("Calculated base conversion rate:"),
     div(class = "big", textOutput("currentCvr", inline = TRUE)))
 
+# Intedned to flow to 2nd row even though width %s should allow it to fit
 div(class = "three-c",
     h5("How many days of traffic is this?"),
     div(numericInput("dayNum", NULL, value=7, step = 1)))
@@ -299,27 +306,35 @@ div(class = "three-c",
 ```
 
 
-```{r}
+```{r baseConversionCalculation}
+# Output calculated conversion rate from current traffic inputs
 output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1),"%")})
 
 ```
 
 
-### Inputs help
-`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive error rate.
+### Help
+`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive error rate when the true effect size is at the null hypothesis threshold.
 
-### Advanced
-Upper boundary sensitivity
-Lower boundary sensitivity
-Boundary type
+`Power` - This is ($1 - \beta$) where $\beta$ is your nominal false negative error rate. It represents your likelihood of getting a statisticaly significant positive result when the true effect size is the Minimum Detectable Effect.
+
+##### More coming soon!
+
+```{r advancedInputs, include=FALSE}
+# TO BE DEVELOPED
+# ### Advanced
+# Upper boundary sensitivity
+# Lower boundary sensitivity
+# Boundary type
+```
 
 Row {data-height=150}  
 -----------------------------
 
 ### Planned analyses
 
-#### How many times do you want to peek on the test results? 
-(Include final analysis)
+#### How many times do you want to "peek" and analyze test results? 
+(Including final analysis)
 ```{r}
 numericInput(
   "checknum",
@@ -333,18 +348,20 @@ numericInput(
 
 
 ```{r createAndStoreDesign, include=FALSE}
-# SEQUENTIAL TEST DESIGN
-
+# CREATE SEQUENTIAL TEST DESIGN
+# Listen for changes in any inputs or submitted results
 observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$tls, input$checknum, reactiveResultsVars$rslt),{
   
   reactiveDesignVars$tls <- as.numeric(input$tls)
   
+  # If there are results, it's a difference function call (boundaries are adjusted)
   if (is.null(reactiveResultsVars$rslt)) {
     testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum)
   } else  {
     testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum, reactiveResultsVars$rslt)
   }
   
+  # Take all the design outputs and assign to individual variables used throughout app
   reactiveDesignVars$fixedn <- testDesign$n.fix*2
   reactiveDesignVars$seqn <- tail(testDesign$n.I,1)*2
   reactiveDesignVars$fulldesign <- testDesign
@@ -368,29 +385,29 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
     results = 0
   )
   
-  try({
-    
-  })
+
   # Evaluate results for boundary crossing
   if (length(reactiveResultsVars$rslt) > 0) {
     for (i in 1:length(reactiveResultsVars$rslt)) {
       currRslt <- reactiveResultsVars$rslt[i]
       currChk <- currRslt[[1]][1]
       currZ <- currRslt[[1]][6]
+      # Add zscores to results table
       reactiveDesignVars$table$complete[currChk, 6] = currZ
     }
     
+    # Declare an outcome
     for (i in 1:length(reactiveResultsVars$rslt)) {
-      d <- reactiveResultsVars$rslt[i]
-      a <- as.numeric(d[[1]][1])
-      b <- d[[1]][6]
-      if (b > testDesign$upper$bound[a]) {
+      rslt <- reactiveResultsVars$rslt[i]
+      chk <- as.numeric(rslt[[1]][1])
+      zscr <- rslt[[1]][6]
+      if (zscr > testDesign$upper$bound[chk]) {
         reactiveResultsVars$win <-
-          list(checkpoint = a, outcome = "efficacy")
+          list(checkpoint = chk, outcome = "efficacy")
         break
-      } else if (b < testDesign$lower$bound[a]) {
+      } else if (zscr < testDesign$lower$bound[chk]) {
         reactiveResultsVars$win <-
-          list(checkpoint = a, outcome = "futility")
+          list(checkpoint = chk, outcome = "futility")
       }
     }
   }
@@ -443,7 +460,7 @@ This chart plots the likelihood of crossing a decision boundary at each checkpoi
 
 ```{r powerPlot}
 
-# output$pwrPlot <- renderUI({
+# Configure the power plot
 output$pwrPlot <- renderPlot({
   probOb <- reactiveDesignVars$probOb
   deltas <- reactiveDesignVars$deltas/100
@@ -487,6 +504,7 @@ div(plotOutput("pwrPlot"))
 This chart displays the expected sample size by the actual effect size of the treatment.
 
 ```{r expectedSamplePlot}
+# Configure the expected sample size plot
 output$samplePlot <- renderPlot({
   nList <- reactiveDesignVars$table$samples
   probOb <- reactiveDesignVars$probOb
@@ -547,11 +565,9 @@ div(class='three-c',
 
 div(class='three-c',
   h5('Conversion rate'),
-  div(textOutput("aRate", inline = TRUE)
+  div(class = "big", textOutput("aRate", inline = TRUE)
       )
-  
 )
-
 
 ```
 
@@ -572,9 +588,8 @@ div(class='three-c',
 
 div(class='three-c',
   h5('Conversion rate'),
-  div(textOutput("bRate", inline = TRUE)
+  div(class = "big", textOutput("bRate", inline = TRUE)
       )
-  
 )
 
 ```
@@ -583,7 +598,7 @@ div(class='three-c',
 
 ```{r}
 div(class = 'three-c',
-    h5('Delta'),
+    h5('Difference'),
     div(class = "big", textOutput("rateDiff")))
 
 div(class = 'three-c',
@@ -596,14 +611,16 @@ div(class = 'three-c',
     
 ```
 
-#### Checkpoint select - enter the results for the right checkpoint
+#### Checkpoint selection: Which analysis do these results apply to?
 ```{r}
-div(class = "cent",
-    div(class = "slider", htmlOutput("checkSelect")),
-    h4(class = "slider", actionLink("addResults", "Add checkpoint results")))
+div(class = "slider",
+    div(htmlOutput("checkSelect")),
+    h4(actionLink("addResults", "Add results to the analysis for the selected checkpoint")))
 ```
 
 ```{r resultsOutputs, include=FALSE}
+# Configure results outputs except for plots -- those are in their corresponding section
+# Slider output
 output$checkSelect <- renderUI({
   sliderInput("checkpoint",
               NULL,
@@ -613,13 +630,14 @@ output$checkSelect <- renderUI({
               step = 1,
               round = TRUE,
               ticks = FALSE,
-              pre = "Checkpoint number: ")
+              pre = "Analysis #")
 })
 
-output$bRate <- renderText({paste0(input$bConversions / input$bTraffic * 100, "%")})
+# Conversion rate calculation outputs
+output$aRate <- renderText({paste0(round(input$aConversions / input$aTraffic * 100,1), "%")})
+output$bRate <- renderText({paste0(round(input$bConversions / input$bTraffic * 100,1), "%")})
 
-output$aRate <- renderText({paste0(input$aConversions / input$aTraffic * 100, "%")})
-
+# Conversion difference
 output$rateDiff <- renderText({
   req(input$aConversions > 1)
   req(input$bConversions > 1)
@@ -633,7 +651,7 @@ output$rateDiff <- renderText({
   paste0(diff, "%")
 })
 
-
+# Updates zscore calculation when results inputs change
 observeEvent(c(input$aConversions, input$bConversions, input$aTraffic, input$bTraffic),{
   req(input$aConversions > 1)
   req(input$bConversions > 1)
@@ -650,30 +668,34 @@ observeEvent(c(input$aConversions, input$bConversions, input$aTraffic, input$bTr
   
 })
 
+# Zscore output
 output$zscore <- renderText({
   req(reactiveResultsVars$z != 0)
   reactiveResultsVars$z})
 
+# Pct to sample output
 output$proportion <- renderText({
   req(input$aConversions > 1)
   req(input$bConversions > 1)
   req(input$aTraffic > 10)
   req(input$bTraffic > 10)
+  
   nprop <- (round(100*(input$aTraffic + input$bTraffic)/reactiveDesignVars$seqn))
+  
   paste0(nprop,"%")
-  })
+})
 
+# CTA action adds current inputs to reactive results list
 observeEvent(input$addResults, {
   rownum <- paste0("checkpoint",input$checkpoint)
   zadd <- reactiveResultsVars$z
   rsltList <- c(input$checkpoint,input$aConversions,input$aTraffic,input$bConversions,input$bTraffic,zadd)
   
   reactiveResultsVars$rslt[[rownum]] <- rsltList
-  
 
+}, ignoreInit = TRUE)
 
-})
-
+# When changing the checkpoint selected, if there are stored results, populate inputs with them
 observeEvent(input$checkpoint, {
   try({
   for (i in 1:length(reactiveResultsVars$rslt)) {
@@ -683,7 +705,7 @@ observeEvent(input$checkpoint, {
         updateNumericInput(session,"aConversions", value = d[[1]][2])
         updateNumericInput(session,"aTraffic", value = d[[1]][3])
         updateNumericInput(session,"bConversions", value = d[[1]][4])
-        updateNumericInput(session,"aTraffic", value = d[[1]][5])
+        updateNumericInput(session,"bTraffic", value = d[[1]][5])
       }
   }
   })
@@ -696,15 +718,12 @@ observeEvent(input$checkpoint, {
 
 The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date.
 
-```{r}
-
-
-  div(class = "ztable", gt_output("resultTable"))
-  
-
-```
 
 ```{r}
+# Table
+div(class = "ztable", gt_output("resultTable"))
+
+# Confidence and Interval calculations only show if there is conclusive outcome
 div(class = "confidence",
   div(class = "big",
   textOutput("outcome")
@@ -716,12 +735,15 @@ div(class = "big",
   textOutput("interval")
 ),
 
+# Clear results linke
 h4(actionLink("clear","Clear all results"))
 )
 
+# Boundary Plot
 div(class = "bounds",
 plotOutput("boundPlot")
     )
+
 ```
 
 
@@ -741,10 +763,12 @@ output$resultTable <- render_gt({
     tab_spanner(columns = vars(lower,upper), label = "Decision Boundaries")
 
   
-  }) #, striped = TRUE, hover = TRUE, bordered = TRUE
+  }) 
+
 ```
 
 ```{r clearResults, include=FALSE}
+# Clear all the reactive results variables (list)
 observeEvent(input$clear, {
   req(!is.null(reactiveResultsVars$rslt))
   
@@ -755,6 +779,7 @@ observeEvent(input$clear, {
 
 ```{r confidenceCalcFunction, include=FALSE}
 
+# Function to accept results and configuration and to return a list payload with confidence and interval
 calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
   # Ns is list of sample sizes at check-ins, these are for 1 variation, not total
   # Zs are the upper boundary z scores for all prior check-ins and the calculated z score for the last one
@@ -768,9 +793,7 @@ calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
   
   # Adjusted p-value once a critical boundary has been crossed
   probs <- gsProbability(k=length(Ns), theta=0, n.I=Ns, a=array(-20,length(Ns)),b=Zs)
-  
-  pval <- sum(probs$upper$prob) * tls
-
+  pval <- sum(probs$upper$prob) * tls 
   conf <- abs(round((1-pval)*100, digits=1))
   textConf <- paste0(conf,'%')
   
@@ -784,6 +807,7 @@ calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
   textLci <- paste0(ci$lower,'%')
   textUci <- paste0(ci$upper,'%')
   
+  # Compile payload
   ciPayload <- list(textConf, textLci, textUci)
   
   return(
@@ -791,9 +815,11 @@ calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
     )
 }
 
+# When there's an winning outcome declared, calculated confidence interval
 observeEvent(reactiveResultsVars$win$outcome, {
   req(reactiveResultsVars$win$outcome == "efficacy")
   
+  # Set all the variables needed
   checkNum <- paste0("checkpoint",reactiveResultsVars$win$checkpoint)
   checkNumInt <- reactiveResultsVars$win$checkpoint
   nList <- reactiveDesignVars$table$samples/2
@@ -806,31 +832,36 @@ observeEvent(reactiveResultsVars$win$outcome, {
   nB <- reactiveResultsVars$rslt[[checkNum]][5] # number of samples in test
   ciZ <- reactiveDesignVars$table$upper[checkNumInt] # upper boundary z-score from original design for the most recent check-in point
   tls <- reactiveDesignVars$tls # tls number of tails
-
+  
+  # Call the CI function
   ciCalc <- calcConfidence(Ns,Zs,xA,xB,nA,nB,ciZ,tls)
   
+  # Set the function payload to reactive variables
   reactiveResultsVars$win$conf <- ciCalc[1] 
   reactiveResultsVars$win$ciLow <- ciCalc[2]
   reactiveResultsVars$win$ciHigh <- ciCalc[3]
 
 }, ignoreInit = TRUE)
 
+# Outcome message
 output$outcome <- renderText({
   req(!is.null(reactiveResultsVars$win))
   
   if (reactiveResultsVars$win$outcome == "efficacy") {
-    return("The test experince has passed the efficacy boundary.")
+    return("The test experience has passed the efficacy boundary.")
   } else {
     return("The test experience has passed the futility boundary.")
   }
 })
 
+# Confidence message if applicable (if win)
 output$confidence <- renderText({
   req(!is.null(reactiveResultsVars$win$conf))
   
   paste0("Confidence = ",reactiveResultsVars$win$conf[[1]])
 })
 
+# Confidence interval message if applicable (if win)
 output$interval <- renderText({
   req(!is.null(reactiveResultsVars$win$ciLow))
   
@@ -843,8 +874,6 @@ output$boundPlot <- renderPlot({
 
   df <- reactiveDesignVars$table$complete
   df$results[df$results == 0] <- NA 
-  #days <- round(input$traff/input$dayNum)
-  #df$estDays <- round(df$samples / days)
   nperDay <- round(input$traff/input$dayNum)
 
 
@@ -863,15 +892,13 @@ output$boundPlot <- renderPlot({
     geom_label(y=df$lower, label = round(df$lower,2)) +
     geom_label(y=df$results, label = round(df$results,2), color = "chartreuse3")
     
-
   }, height = 350)
-
 
 ```
 
 
 Row
 -----------------------------
-Thanks for coming, [leave us feedback](https://docs.google.com/forms/d/e/1FAIpQLSfHiI150WWY1cTTE1UaKHKuNxoeL9zxck1v-UZWRkWl1eVsQw/viewform).
+Thanks for coming, we welcome [feedback, bug reports and feature requests](https://docs.google.com/forms/d/e/1FAIpQLSfHiI150WWY1cTTE1UaKHKuNxoeL9zxck1v-UZWRkWl1eVsQw/viewform).
 
 
