@@ -95,6 +95,11 @@ h5 {
 	font-size: 16px;
 }
 
+/* In case of large objects */
+.large {
+	overflow: scroll;
+}
+
 
 /* Boundary plot */
 .bounds {

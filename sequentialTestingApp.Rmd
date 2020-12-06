@@ -12,7 +12,6 @@ runtime: shiny
 ```{r toDos}
 # Add confidence interval visualizations?
 # Optimize code...stop double executions if possible
-# Enable selection of single analysis?
 # Support multiple comparison adjustment
 ```
 
@@ -320,24 +319,105 @@ output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1)
 
 
 ### Help
-`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive error rate when the true effect size is at the null hypothesis threshold.
+`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive (type-1) error rate when the true effect size is at the null hypothesis threshold.
 
-`Power` - This is ($1 - \beta$) where $\beta$ is your nominal false negative error rate. It represents your likelihood of getting a statisticaly significant positive result when the true effect size is the Minimum Detectable Effect.
+`Power` - This is ($1 - \beta$) where $\beta$ is your nominal false negative (type-2) error rate. It represents your likelihood of getting a statisticaly significant positive result when the true effect size is the Minimum Detectable Effect.
 
-##### More coming soon!
+`Tails` - Tails refer to the outside ends of a cumulative probability distribution and essentially reflect the framing of your null hypothesis. Typically 1-tail is the ideal choice for optimization experiments.
 
-```{r advancedInputs, include=FALSE}
+`Minimum Detectable Effect` - a.k.a. Minimum Effect of Interest is the true difference at which Power is guaranteed. So if the true difference in conversion rates is `MDE`, you'll get a true positive `Power`% of the time.
+
+`Non-inferiority margin` - Often, "no practical difference" can be somewhat lower than "0 difference". The non-inferiority margin ($\Delta$) is that margin of indifference. $\alpha$ is guaranteed at $Base ConversionRate(1- \Delta)$.
+
+`Z-score` - Our "test statistic". Statistical significance is derived from a p-value ($1-p$) which in turn is derived from a z-score. The z-score more or less represents the number of standard deviations away from the mean a specific observation is. Here, the mean is control conversion rate and the observation is the test conversion rate.
+
+
+### Multiple Comparisons
+```{r}
 # TO BE DEVELOPED
-# ### Advanced
+#
+# Boundary type
+#
+# Test Type
+# selectInput("testType", 
+#             label = NULL,
+#             choices = c())
+#
 # Upper boundary sensitivity
 # Lower boundary sensitivity
-# Boundary type
+# O’Brien-Fleming, Pocock, or Wang-Tsiatis are normally used with equally-spaced analyses. They
+# are used only with one-sided (test.type=1) and symmetric two-sided (test.type=2) designs. We
+# will use the CAPTURE example, again with 80% power rather than the default of 90%. Notice
+# that this requires specifying beta=.2 in both nBinomial() and gsDesign(). O’Brien-Fleming,
+# Pocock, or Wang-Tsiatis (parameter of 0.15) bounds for equally space analyses are generated using
+# the parameters sfu and sfupar below. I
+
+div(class = "input-two-c",
+    h4("Warning: The 'Results analysis' panel is incompatible with this feature."),
+    br(),
+    p("We can use the Holm method to make adjustments to ONLY our upper z-score boundary when our number of test variations is more than 1 (not counting control) and/or when using more than one primary KPI to analyze the test."),
+    h5("How many additional variants or metrics are you testing?"),
+    div(numericInput("numVars",
+                 label = NULL, value = 0, min = 1, max = 20, step = 1)),
+    p("The Holm method works in this case by ranking your variations/metrics high to low by their z-scores. The new z-score boundary for each is according to its rank. 'Z-1' is the highest z-score and so on.")
+)
+
+div(class = "input-two-c large",
+    gt_output("adjBounds")
+)
+
 ```
+
+```{r multipleComparisons, include=FALSE}
+
+output$adjBounds <- render_gt({
+  req(input$numVars > 0)
+  req(!is.null(reactiveDesignVars$table$complete$upper))
+  
+  df <- data.frame(
+    checkpoints = paste("Checkpoint",seq(1,input$checknum)),
+    origZscors = reactiveDesignVars$table$complete$upper) 
+
+  comps <- input$numVars + 1
+  
+  for (i in seq(1:input$numVars)) {
+    # labVar <- if (i == 1) " " else " next "
+    # colLab <- paste0("Adjusted upper boundary for",labVar,"highest z-score")
+    rank <- paste0("Z-",i)
+    
+    pVals <- 1-pnorm(reactiveDesignVars$table$complete$upper)
+    pVals <- pVals/(comps-i+1)
+    zVals <-  abs(qnorm(pVals))
+    
+    df[rank] <- zVals
+    
+ 
+  }
+  
+  gt(df) %>%
+    fmt_number(columns = contains("z"), decimals = 2) %>%
+    cols_label(checkpoints = "",
+               origZscors = "Old Boundary") %>%
+    tab_options(
+      container.height = 300,
+      container.overflow.x = TRUE,
+      container.overflow.y = TRUE)
+})
+
+```
+
+### Tips
+
+1. **Before** committing to a sequential test, check the expected duration with a fixed design. It's healthy to run tests for 2 weeks to capture a few business cycles.
+2. The previous version of this calculator allowed you to easily change the timing of the checkpoints vs. spacing them evenly. That step is now unnecessary since **boundaries and checkpoints will automatically adjust** whenever you enter results. 
+    + To be explicit, you are not bound to the *timing* of the check-ins, only to the number of checkins.
+3. **Use the quick-load shortcuts!** It will save you a ton of time, especially after you have entered results.
+4. **Use the Power Plot** to help you plan your test configuration. The probabilities of false positives and false negatives at different effect sizes can prove very informative. Try adding a **non-inferiority margin** and see what happens!
 
 Row {data-height=150}  
 -----------------------------
 
-### Planned analyses
+### Planned analyses (checkpoints)
 
 ##### How many times do you want to "peek" and analyze test results? 
 
