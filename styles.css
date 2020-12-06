@@ -100,6 +100,11 @@ h5 {
 	overflow: scroll;
 }
 
+/* Let tips scroll */
+#section-tips .chart-stage {
+	overflow: scroll !important;
+}
+
 
 /* Boundary plot */
 .bounds {

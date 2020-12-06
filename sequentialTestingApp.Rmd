@@ -408,11 +408,24 @@ output$adjBounds <- render_gt({
 
 ### Tips
 
-1. **Before** committing to a sequential test, check the expected duration with a fixed design. It's healthy to run tests for 2 weeks to capture a few business cycles.
-2. The previous version of this calculator allowed you to easily change the timing of the checkpoints vs. spacing them evenly. That step is now unnecessary since **boundaries and checkpoints will automatically adjust** whenever you enter results. 
-    + To be explicit, you are not bound to the *timing* of the check-ins, only to the number of checkins.
-3. **Use the quick-load shortcuts!** It will save you a ton of time, especially after you have entered results.
-4. **Use the Power Plot** to help you plan your test configuration. The probabilities of false positives and false negatives at different effect sizes can prove very informative. Try adding a **non-inferiority margin** and see what happens!
+`Is this necessary?` **Before** committing to a sequential test, check the expected duration with a fixed design. It's healthy to run tests for 2 weeks to capture a few business cycles.
+
+`Quick-load shortcuts` The shortcut string offered atop the app will save you a ton of time by loading the entire configuration as you currently find it, including results entered.
+
+`1-tail vs 2-tail` Selecting 1-tail for a 'superiority test' will produce a **futility boundary**, allowing you to end the test early when test results are poor and a comeback is not likely while preserving power. Selecting 2-tail will produce identical (symmetrical) upper and lower decision boundaries.
+
+`Use the Power Plot` to help you plan your test configuration. The probabilities of false positives and false negatives at different effect sizes can prove very informative. Try adding a **non-inferiority margin** and see what happens!
+
+`Timing adjustments` The previous version of this calculator allowed you to easily change the timing of the checkpoints vs. spacing them evenly. That step is now unnecessary since **boundaries and checkpoints will automatically adjust** whenever you enter results. 
+    * To be explicit, you are not bound to the *timing* of the check-ins, only to the number of checkins.
+
+`Early check-ins` You might want to **plan your first check for early** in the test. This could help identify problematic test experiences and prevent loss.
+
+`Non-binding decision boundary` The **lower** decision boundary is what's known as a **non-binding** boundary. This means, when you cross it, you can still choose to continue the test while preserving your type-1 error rate and only improving your power. 
+
+`Binding decision boundary` The **upper** decision boundary is a **binding** boundary. When your results cross it, you must end the test in order to preserve your type-1 error rate.
+
+`P-value adjustments` Standard Confidence Interval and p-value calculations will be understated and cannot be taken at face value. **We provide adjusted p-values and confidence intervals** when the upper (efficacy) boundary is crossed.
 
 Row {data-height=150}  
 -----------------------------
