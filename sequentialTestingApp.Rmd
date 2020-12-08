@@ -151,7 +151,7 @@ output$fixedLink <- renderUI({
     b <- ""      
     try ({for (i in 1:length(reactiveResultsVars$rslt)) {
       d <- reactiveResultsVars$rslt[i]
-      c <- paste(d[[1]], collapse = "-")
+      c <- paste(d[[1]], collapse = "|")
       b <- if (nchar(b) > 1) paste(b,c, sep = ";") else c
     }
     })
@@ -202,8 +202,8 @@ observeEvent(input$loadShortcut, {
     r3 <- list()
     r4 <- list()
     for (i in 1:length(r2)) {
-      r3 <- strsplit(r2[i],"-",fixed = TRUE)
-      r3 <- c(r3[[1]])
+      r3 <- strsplit(r2[i],"|",fixed = TRUE)
+      r3 <- as.numeric(c(r3[[1]]))
       rl <- paste0("checkpoint",r3[1])
       r4[[rl]] <- r3
     }
@@ -214,7 +214,7 @@ observeEvent(input$loadShortcut, {
 })
 ```
 
-Row {.tabset data-height=360} 
+Row {.tabset data-height=370} 
 -----------------------------
 
 ### Test Configuration
@@ -421,11 +421,13 @@ output$adjBounds <- render_gt({
 
 `Early check-ins` You might want to **plan your first check for early** in the test. This could help identify problematic test experiences and prevent loss.
 
-`Non-binding decision boundary` The **lower** decision boundary is what's known as a **non-binding** boundary. This means, when you cross it, you can still choose to continue the test while preserving your type-1 error rate and only improving your power. 
+`Non-binding decision boundary` The **lower** decision boundary for a 1-tail test is what's known as a **non-binding** boundary. This means, when you cross it, you can still choose to continue the test while preserving your type-1 error rate and only improving your power. 
 
-`Binding decision boundary` The **upper** decision boundary is a **binding** boundary. When your results cross it, you must end the test in order to preserve your type-1 error rate.
+`Binding decision boundary` The **upper** decision boundary in a 1-tail test and both boundaries in a 2-tail test are **binding** boundaries. When your results cross them, you must end the test in order to preserve your type-1 error rate.
 
 `P-value adjustments` Standard Confidence Interval and p-value calculations will be understated and cannot be taken at face value. **We provide adjusted p-values and confidence intervals** when the upper (efficacy) boundary is crossed.
+
+`Why use z-scores?` You are likely more accustomed to seeing p-values, which are derived from the z-score. But we don't show the p-value because it cannot be interpretted as it normally would be in a fixed-horizon test. In other words, we're trying to avoid misinterpretation and statistical faux pas.
 
 Row {data-height=150}  
 -----------------------------
@@ -848,7 +850,6 @@ plotOutput("boundPlot")
 
 ```{r tableOutput, include=FALSE}
 output$resultTable <- render_gt({
-
   gt(reactiveDesignVars$table$complete) %>%
     cols_label(times = "% Complete",
                samples = "Total Sample",
@@ -996,8 +997,56 @@ output$boundPlot <- renderPlot({
 ```
 
 
-Row
+Row {data-height=50}
 -----------------------------
 Thanks for coming, we welcome [feedback, bug reports and feature requests](https://docs.google.com/forms/d/e/1FAIpQLSfHiI150WWY1cTTE1UaKHKuNxoeL9zxck1v-UZWRkWl1eVsQw/viewform).
 
+Row {data-height=75}
+-----------------------------
+
+```{r}
+p(
+  class = 'postS',
+  strong("Technical Bits"),
+  " - This application uses the R package",
+  tags$a(href = "https://cran.r-project.org/package=gsDesign", target =
+           "_blank",
+         "gsDesign"),
+  " to compute the sequential test sample sizes and decision boundaries.",
+  "You can find some educational documentation on the methods",
+  "(not just help modules)",
+  tags$a(href = "https://r-forge.r-project.org/scm/viewvc.php/*checkout*/pkg/gsDesign/inst/doc/gsDesignManual.pdf?revision=382&root=gsdesign", target =
+           "_blank",
+         "here"),
+  ". There are, in fact, many ways to formulate and customize a sequential test with decision boundaries.",
+  " The approaches differ in terms of the shape of the boundary curve (or lack thereof) and how ",
+  " conservative the approach to alpha and beta spending. For 1-tail tests, we use test.type=4, sfu=sfPower, sfupar=3, and sflpar=2 ",
+  "as parameters for the design function. These specify a Kim-Dements power spending function with a non-binding lower boundary ",
+  "and a binding upper boundary as well as a more conservative (harder to pass)",
+  "early upper boundary than lower boundary. For 2-tail tests, we use test.type=2 instead which makes both boundaries binding."
+)
+
+```
+
+Row {data-height=100}
+-----------------------------
+```{r}
+p(
+  class = 'postS',
+  strong("Credits"),
+  'This application was only made possible by the work and contributions of so many others. ',
+  'Many academic adventurers did the real work on developing the statistical methods we all rely on. ',
+  'Pocock, O\'Brien, Flemming, Lan, Kim, Demets, Jennison, Turnbill and many others blazed the trails. ',
+  br(),
+  'Georgi Georgiev synthesized the academics\' work and appropriated it for online a/b testing. ',
+  'His body of literature over at analytics-toolkit.com", provides an excellent introduction to the statistics and a guidebook on how to use them. ',
+  'We based the alpha spending functions in our calculator on those documented in his AGILE method. ',
+  'Also, his suite of calculators is excellent.',
+  'In fact, it\'s worth noting that Georgiev\'s treatment of bias in confidence calculations is preferrable ',
+  'to the method offered in the gsDesign R package which we use here.',
+  br(),
+  'Speaking of gsDesign, Keaven Anderson of Merck Research Laboratories did an amazing job crafting and ',
+  'documenting this package. Our application is little more than a highly restrictive GUI for it. '
+)
+```
 
