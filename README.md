@@ -13,5 +13,10 @@ This application allows you to peek responsibly by adjusting test statistics to 
 
 ## Version history
 - v2.1 Minor updates to wording, some code simplifications, improvements to readme file, versioning added
-- v2.0 Released October 2020
-- v1.0 Released some time in May 2020
+  - Multiple comparisons input added to shortcut links, old links with results need to be updated
+    - Old link without results: 95,80,10,10,1,0,10000,4,1000,7,
+    - New link without results: 95,80,10,10,1,0,10000,4,1000,7,0,  Notice "0," added to end for the new input
+    - Old link with results: 95,80,10,10,1,0,10000,4,1000,7,1|100|1000|110|1000|0.73
+    - New link with results: 95,80,10,10,1,0,10000,4,1000,7,0,1|100|1000|110|1000|0.73  Notice "0," added mid-string
+- v2.0 Released October 2020.  
+- v1.0 Released some time in May 2020.  
