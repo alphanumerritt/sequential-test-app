@@ -13,6 +13,7 @@ runtime: shiny
 # Add confidence interval visualizations?
 # Optimize code...stop double executions if possible
 # Support multiple comparison adjustment
+# Fix break when MDE/Nonf changed after test results entered 
 ```
 
 ```{r setup, include=FALSE}
@@ -77,7 +78,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       #checkpoints <- list()
       multiplier <- 1/k_checks
       checkpoints <- seq(1,k_checks)*multiplier*n_sequential
-      
+
       # We'll use these to adjust checkpoints if necessary based on checkpoints till now
       highCheckpt <- 0
       chkptIndex <- 0
@@ -105,6 +106,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           }
       }
       
+
       # 2ND DESIGN ----
       # Generates updated gsDesign object with chosen checkpoints
       finalDesign <-
@@ -118,9 +120,10 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           sflpar = lowBnd,
           n.fix = n_fixed,
           n.I = checkpoints,
-          beta = 1 - pwr
+          beta = 1 - pwr,
+          maxn.IPlan = design$n.I[design$k]
         )
-      
+
       # Returns the whole test design object (see gsDesign)
       return(finalDesign)
 
@@ -172,6 +175,7 @@ output$fixedLink <- renderUI({
     input$checknum,
     input$conversions,
     input$dayNum,
+    input$numVars,
     a(),
     sep = ","
   ))
@@ -194,10 +198,11 @@ observeEvent(input$loadShortcut, {
   updateNumericInput(session, 'checknum', value = shortcutList[8]) 
   updateNumericInput(session, 'conversions', value = shortcutList[9])
   updateNumericInput(session, 'dayNum', value = shortcutList[10])
+  updateNumericInput(session, 'numVars', value = shortcutList[11])
   
   # Update results (behind the scene variables) if present
-  if (!is.na(shortcutList[11])) {
-    r1 <- strsplit(shortcutList[11],";", fixed = TRUE)
+  if (!is.na(shortcutList[12])) {
+    r1 <- strsplit(shortcutList[12],";", fixed = TRUE)
     r2 <- r1[[1]]
     r3 <- list()
     r4 <- list()
@@ -352,14 +357,14 @@ output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1)
 # Pocock, or Wang-Tsiatis (parameter of 0.15) bounds for equally space analyses are generated using
 # the parameters sfu and sfupar below. I
 
-div(class = "input-two-c",
-    h4("Warning: The 'Results analysis' panel is incompatible with this feature."),
-    br(),
-    p("We can use the Holm method to make adjustments to ONLY our upper z-score boundary when our number of test variations is more than 1 (not counting control) and/or when using more than one primary KPI to analyze the test."),
+div(class = "input-two-c multiple",
+    h4("Warning: Advanced!"),
+    #br(),
+    p("The Results Analysis panel will be rendered inaccurate in the case of multiple testing (calculating p-values for multiple test variations or metrics). We use the Holm method to make adjustments to the z-score boundary for each comparison. Only the upper boundary is given which means that for 1-tail, there will be no futility boundary and for 2-tail you just switch the sign when the difference is negative."),
+    p("When analyzing, you must rank z-scores high to low by their absolute values and apply the new z-score boundaries provided in the table. 'Z-1' applies to the highest z-score and so on."),
     h5("How many additional variants or metrics are you testing?"),
     div(numericInput("numVars",
-                 label = NULL, value = 0, min = 1, max = 20, step = 1)),
-    p("The Holm method works in this case by ranking your variations/metrics high to low by their z-scores. The new z-score boundary for each is according to its rank. 'Z-1' is the highest z-score and so on.")
+                 label = NULL, value = 0, min = 1, max = 20, step = 1))
 )
 
 div(class = "input-two-c large",
@@ -449,6 +454,10 @@ div(style="display:inline-block; padding-left: 5px;", "(Including final analysis
 # CREATE SEQUENTIAL TEST DESIGN
 # Listen for changes in any inputs or submitted results
 observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$tls, input$checknum, reactiveResultsVars$rslt),{
+  req(input$cvra > 0)
+  req(input$mde > 0)
+  req(input$nonf >= 0)
+  req(input$checknum >= 2)
   
   reactiveDesignVars$tls <- as.numeric(input$tls)
   
@@ -469,7 +478,13 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   reactiveDesignVars$table$upper <- testDesign$upper$bound
   
   # Sequence of deltas based on MDE
-  reactiveDesignVars$deltas <- seq(-1,2.5,.25)*input$mde-input$nonf
+  m <- input$mde
+  n <- -input$nonf
+  negD <- -m+n
+  posD <- m-n
+  
+  reactiveDesignVars$deltas <- c(negD*1+n,negD*.75+n,negD*.5+n,negD*.25+n,n,posD*.25+n,posD*.5+n,posD*.75+n,m,posD*1.25+n,posD*1.5+n,posD*1.75+n,posD*2+n,posD*2.25+n,posD*2.5+n)
+  # reactiveDesignVars$deltas <- seq(-1,2.5,.25)*(input$mde+input$nonf)
   thetas <- seq(-1,2.5,.25)*testDesign$delta
   reactiveDesignVars$probOb <- gsProbability(d = testDesign, theta = thetas)
 
@@ -520,7 +535,7 @@ output$fixedN <- renderText({format(round(reactiveDesignVars$fixedn), big.mark="
 output$fixedDays <- renderText({round(reactiveDesignVars$fixedn/(input$traff/input$dayNum))})
 output$seqN <- renderText({format(round(reactiveDesignVars$seqn), big.mark=",", scientific = FALSE)})
 output$maxDays <- renderText({round(reactiveDesignVars$seqn/(input$traff/input$dayNum))})
-output$diff <- renderText({round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100)})
+output$diff <- renderText({paste0(round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100),"%")})
 ```
 
 
@@ -544,7 +559,6 @@ div(
 div(
   h5("That's a maximum increase of ",
      strong(textOutput("diff", inline = TRUE)),
-     strong("% "),
      " See the Expected Sample Size chart below to see what test duration is expected to be based on different effect sizes.")
 )
 
@@ -587,7 +601,7 @@ output$pwrPlot <- renderPlot({
   ggplot(df, aes(x=Effects, y=Probability, color=Boundary, linetype=Checkpoint)) +
     geom_line() +
     theme_light() +
-    scale_y_continuous(labels = scales::percent, n.breaks = 10) +
+    scale_y_continuous(labels = scales::percent_format(accuracy=1), n.breaks = 10) +
     scale_x_continuous(labels = scales::percent, n.breaks = 8)
   
 }, height = 350)
@@ -604,6 +618,8 @@ This chart displays the expected sample size by the actual effect size of the tr
 ```{r expectedSamplePlot}
 # Configure the expected sample size plot
 output$samplePlot <- renderPlot({
+  req(as.numeric(input$tls) < 2)
+  
   nList <- reactiveDesignVars$table$samples
   probOb <- reactiveDesignVars$probOb
   deltas <- reactiveDesignVars$deltas/100
@@ -630,8 +646,8 @@ output$samplePlot <- renderPlot({
     labs(y="Expected Sample Size") +
     theme_light() +
     scale_x_continuous(labels = scales::percent, n.breaks = 8) + 
-    scale_y_continuous(labels = scales::comma) +
-    scale_y_continuous(sec.axis = sec_axis(~ ./nperDay, name = "Estimated Duration (Days)"))
+    #scale_y_continuous(labels = scales::comma) +
+    scale_y_continuous(sec.axis = sec_axis(~ ./nperDay, name = "Estimated Duration (Days)"), labels = scales::comma)
   
 }, height = 350)
 
@@ -899,7 +915,7 @@ calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
   
   # Compute adjusted CI 
   ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,
-                   alpha=2*(1-pnorm(ciZ)))
+                   alpha=tls*(1-pnorm(ciZ)))
 
   ci$lower <- round(ci$lower/(xA/nA)*100, digits=1)
   ci$upper <- round(ci$upper/(xA/nA)*100, digits=1)
@@ -985,8 +1001,8 @@ output$boundPlot <- renderPlot({
     #geom_point(mapping = aes(y=results), color = "chartreuse3") +
     theme_light() +
     labs(x="Sample Size", y="Z-score") +
-    scale_x_continuous(labels = scales::comma) +
-    scale_x_continuous(sec.axis = sec_axis(~./nperDay, name = "Estimated Duration (Days)")) +
+    #scale_x_continuous(labels = scales::comma) +
+    scale_x_continuous(sec.axis = sec_axis(~./nperDay, name = "Estimated Duration (Days)"), labels = scales::comma) +
     scale_y_continuous(n.breaks = 8) +
     geom_label(y=df$upper, label = round(df$upper,2)) +
     geom_label(y=df$lower, label = round(df$lower,2)) +
@@ -999,7 +1015,7 @@ output$boundPlot <- renderPlot({
 
 Row {data-height=50}
 -----------------------------
-Thanks for coming, we welcome [feedback, bug reports and feature requests](https://docs.google.com/forms/d/e/1FAIpQLSfHiI150WWY1cTTE1UaKHKuNxoeL9zxck1v-UZWRkWl1eVsQw/viewform).
+v2.3 - Thanks for coming, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 Row {data-height=75}
 -----------------------------

@@ -154,4 +154,9 @@ h5 {
 	font-size: 10px;
 }
 
-
+/* style text for multiple comparison */
+.multiple p {
+	font-size: 13px;
+	padding: 6px 0;
+	margin: 0;
+}
