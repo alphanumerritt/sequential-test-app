@@ -681,6 +681,12 @@ output$samplePlot <- renderPlot({
  
   ggplot(df, aes(x = Effects, y = ExpSample)) +
     geom_line(data = spline_df, aes(x = x, y = y), color = "cyan3") +
+    geom_hline(yintercept = reactiveDesignVars$fixedn, size=.25, linetype = "dashed") +
+    annotate(geom = "text", x = 0,
+         y = reactiveDesignVars$fixedn * .99, 
+         label= "Fixed horizon sample size",
+         fontface = "bold",
+         size = 4.0) +
     labs(y="Expected Sample Size") +
     theme_light() +
     scale_x_continuous(labels = scales::percent, n.breaks = 8) + 
@@ -1037,8 +1043,16 @@ output$boundPlot <- renderPlot({
     geom_line(mapping = aes(y=upper), color = "cyan3") +
     geom_line(mapping = aes(y=lower), color = "brown1") +
     geom_line(mapping = aes(y=results), color = "chartreuse3", linetype = 2) +
-    geom_ribbon(mapping = aes(ymin = min(lower), ymax = lower), fill = "brown1", alpha = .6) +
-        geom_ribbon(mapping = aes(ymin = upper, ymax = max(upper)), fill = "cyan3", alpha = .6) +
+    geom_ribbon(mapping = aes(ymin = min(lower), ymax = lower), fill = "brown1", alpha = .5) +
+        geom_ribbon(mapping = aes(ymin = upper, ymax = max(upper)), fill = "cyan3", alpha = .5) +
+    geom_vline(xintercept = reactiveDesignVars$fixedn, size=.25, linetype = "dashed") +
+    annotate(geom = "text", y = 1,
+         x = reactiveDesignVars$fixedn * 1.02, 
+         label= "Fixed horizon sample size",
+         fontface = "bold",
+         angle = 90,
+         size = 4.0) +
+    labs(y="Expected Sample Size") +
     #geom_point(mapping = aes(y=results), color = "chartreuse3") +
     theme_light() +
     labs(x="Sample Size", y="Z-score") +
@@ -1056,7 +1070,7 @@ output$boundPlot <- renderPlot({
 
 Row {data-height=50}
 -----------------------------
-v2.4 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v2.6 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 
 Row {data-height=75}
