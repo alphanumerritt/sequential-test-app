@@ -12,6 +12,8 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - Adjusted boundary values for multiple testing scenarios (multiple variants or metrics)
 
 ## Version history
+- v2.6 Apr 14, 2021
+    - Added fixed horizon sample size to plots 
 - v2.5 Apr 14, 2021
     - Fixed bug with shortcut loading
     - Limited check-ins to 18, greater than 18 throws an error with gsDesign package (not certain why)
