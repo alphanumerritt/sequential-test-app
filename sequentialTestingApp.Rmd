@@ -9,45 +9,74 @@ output:
     vertical_layout: scroll
 runtime: shiny
 ---
-```{r toDos}
-# Add confidence interval visualizations?
-# Optimize code...stop double executions if possible
-# Support multiple comparison adjustment
-# Fix break when MDE/Nonf changed after test results entered 
-```
+
 
 ```{r setup, include=FALSE}
+
 library(ggplot2)
 library(shiny)
 library(gsDesign)
 library(dplyr)
 library(tidyr)
 library(gt)
+
+
 ```
+
+<div style="display: none;">
+```{r url_bookmarking, include = FALSE}
+# The code below uses query parameters in the URL of the page so that the total configuration 
+# is captured in the URL, enabling someone to "come back" to the exact configuration at any point.
+# See details at: https://shiny.rstudio.com/reference/shiny/1.5.0/updateQueryString.html.
+# This chunk is wrapped in a <div> that sets the display to none because, otherwise, a little
+# bit of JS gets rendered that chunk options are unable to turn off.
+# enableBookmarking("url")
+# 
+# setBookmarkExclude(c("aTraffic", "loadShortcut", "clear", "addResults", "bTraffic", "aConversions", "checkpoint", "bConversions", "shortcut"))
+# 
+# observe({
+# # Trigger this observer every time an input changes
+#   reactiveValuesToList(input)
+#   session$doBookmark()
+# })
+# 
+# onBookmark(function(state) {
+#   state$values$results <- reactiveResultsVars$rslt
+# })
+# 
+# onBookmarked(function(url) {
+#   updateQueryString(url)
+# })
+# 
+# onRestore(function(state) {
+#   reactiveResultsVars$rslt <- state$values$results
+# })
+```
+</div>
 
 ```{r varsAndFunctions, include=FALSE}
 # These variables will be used throughout the application
 reactiveDesignVars <- reactiveValues(fixedn = NULL, seqn = NULL) # All test DESIGN ouputs
-reactiveResultsVars <- reactiveValues(z = NULL, rslt = NULL, win = NULL) # All RESULTS outputs
+reactiveResultsVars <- reactiveValues(z = NULL, rslt = NULL, win = NULL, tgl = 1) # All RESULTS outputs
 reactTalesNum <- reactiveVal() # Turn "tails" radio button output to number from string
 
 # Function can be called to return a sequential design object
 createTest <- function(a,b,c,d,e,f,g,h=NULL) {
-      alph = 1 - a/100
-      pwr = b/100
-      base = c/100
-      nonf = d/100
-      cvrB = base * (1 + e/100)
-      tls1 = f
+      alph <- 1 - a/100
+      pwr <- b/100
+      base <- c/100
+      nonf <- d/100
+      cvrB <- base * (1 + e/100)
+      tls1 <- f
       k_checks <- g
-      upBnd = 3 #upper boundary exponent value (higher is more conservative, typically use 2 or 3)
-      lowBnd = 2 #lower boundary exponent values (higher is more conservative, typically use 2 or 3)
-      sides = if (tls1 > 1) "two.sided" else "one.sided" 
-      testType = if (tls1 > 1) 2 else 4
-      cvrA = if (tls1 > 1) base else base * (1 - nonf)
+      upBnd <- 3 #upper boundary exponent value (higher is more conservative, typically use 2 or 3)
+      lowBnd <- 2 #lower boundary exponent values (higher is more conservative, typically use 2 or 3)
+      sides <- if (tls1 > 1) "two.sided" else "one.sided" 
+      testType <- if (tls1 > 1) 2 else 4
+      cvrA <- if (tls1 > 1) base else base * (1 - nonf)
       
       # FIXED SAMPLE ----
-      n_fixed = power.prop.test(
+      n_fixed <- power.prop.test(
         n = NULL,
         p1 = cvrA,
         p2 = cvrB,
@@ -56,10 +85,8 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         alternative = sides
       )$n
       
-      # 1ST DESIGN ----
-      # initital gsDesign object with evenly spaced checkpoints,
-      # used to calculate the maximum samples we would require
-      design = gsDesign(
+      # gsDesign object with evenly spaced checkpoints,
+      design <- gsDesign(
         k = k_checks,
         test.type = testType,
         alpha = alph / tls1,
@@ -72,57 +99,60 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       )
       
       # MAX SAMPLE PER VARIATION ----
-      n_sequential = tail(design$n.I, 1)
+      n_sequential <- tail(design$n.I, 1)
 
-      # ANALYSIS CHECKPOINTS ----
-      #checkpoints <- list()
-      multiplier <- 1/k_checks
-      checkpoints <- seq(1,k_checks)*multiplier*n_sequential
 
-      # We'll use these to adjust checkpoints if necessary based on checkpoints till now
-      highCheckpt <- 0
-      chkptIndex <- 0
       
       # If updated checkpoints were passed in based on analyses entered, plug them into the analysis here
       if (!is.null(h)) {
+        # We'll use these to adjust checkpoints if necessary based on checkpoints till now
+        highCheckpt <- 0
+        chkptIndex <- 0
+        # ANALYSIS CHECKPOINTS ----
+        #checkpoints <- list()
+        multiplier <- 1/k_checks # % of sample between checkpoints
+        checkpoints <- seq(1,k_checks)*multiplier*n_sequential
+        
         for (i in 1:length(h)) {
           thisChkpt <- as.numeric(h[[i]][[1]])
           highCheckpt <- if (thisChkpt > highCheckpt) thisChkpt else highCheckpt
           chkptIndex <- if (thisChkpt == highCheckpt) i else chkptIndex
           prevChkpt <- thisChkpt - 1
           chkptN <- as.numeric(h[[i]][[3]])
-          if (prevChkpt == 0 || chkptN > checkpoints[prevChkpt]) {
+          
+          if (prevChkpt == 0 || chkptN > checkpoints[prevChkpt]) { # if this is the first checkpoint, or if sample size is greater than sample at last checkpoint, then reset the sample size for this checkpoint
             checkpoints[thisChkpt] <- chkptN
           }
         }
         if ((k_checks - highCheckpt) > 1) {
-            nNow <- as.numeric(h[[chkptIndex]][[3]])
-            nLeft <- n_sequential - nNow
-            kLeft <- k_checks - highCheckpt
-            mult2 <- 1/kLeft
-            chksleft <- seq(1,kLeft)*mult2*nLeft+nNow
-            highCheckpt <- highCheckpt + 1
+            nNow <- as.numeric(h[[chkptIndex]][[3]]) # get current, latest sample size
+            nLeft <- n_sequential - nNow # calculate remaining sample size
+            kLeft <- k_checks - highCheckpt # calculate remaining scheduled checkpoints
+            mult2 <- 1/kLeft # calculate % of remaining sample size spent at each remaining checkpoint
+            chksleft <- seq(1,kLeft)*mult2*nLeft+nNow # calculate sample size at all remaining checkpoints
+            highCheckpt <- highCheckpt + 1 # just increment latest checkpoint number by 1
             checkpoints[c(highCheckpt:k_checks)] <- chksleft # Refactor/replace remaining checkpoints
-          }
-      }
+        }
+        
+        # Generates updated gsDesign object after results have been entered
+
+        finalDesign <-
+          gsDesign(
+            k = k_checks,
+            test.type = testType,
+            alpha = alph / tls1,
+            beta = 1 - pwr,
+            sfu = sfPower,
+            sfupar = upBnd,
+            sfl = sfPower,
+            sflpar = lowBnd,
+            n.fix = n_fixed,
+            n.I = checkpoints,
+            maxn.IPlan = design$n.I[design$k]
+          )
+      } else {finalDesign <- design}
       
 
-      # 2ND DESIGN ----
-      # Generates updated gsDesign object with chosen checkpoints
-      finalDesign <-
-        gsDesign(
-          k = k_checks,
-          test.type = testType,
-          alpha = alph / tls1,
-          sfu = sfPower,
-          sfupar = upBnd,
-          sfl = sfPower,
-          sflpar = lowBnd,
-          n.fix = n_fixed,
-          n.I = checkpoints,
-          beta = 1 - pwr,
-          maxn.IPlan = design$n.I[design$k]
-        )
 
       # Returns the whole test design object (see gsDesign)
       return(finalDesign)
@@ -133,7 +163,8 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
 getz <- function (a,b,c,d,e) {round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)}
 ```
 
-```{r}
+
+```{r loadtextshortcut}
 
 # Input to load a configuration from shortcut
 div(
@@ -199,18 +230,18 @@ observeEvent(input$loadShortcut, {
   updateNumericInput(session, 'conversions', value = shortcutList[9])
   updateNumericInput(session, 'dayNum', value = shortcutList[10])
   updateNumericInput(session, 'numVars', value = shortcutList[11])
-  
+
   # Update results (behind the scene variables) if present
   if (!is.na(shortcutList[12])) {
-    r1 <- strsplit(shortcutList[12],";", fixed = TRUE)
-    r2 <- r1[[1]]
+    r1 <- strsplit(shortcutList[12],";", fixed = TRUE) # split up the short cut into checkpoints
+    r2 <- r1[[1]] # extract
     r3 <- list()
     r4 <- list()
-    for (i in 1:length(r2)) {
-      r3 <- strsplit(r2[i],"|",fixed = TRUE)
-      r3 <- as.numeric(c(r3[[1]]))
-      rl <- paste0("checkpoint",r3[1])
-      r4[[rl]] <- r3
+    for (i in 1:length(r2)) { # for number of saved checkpoints
+      r3 <- strsplit(r2[i],"|",fixed = TRUE) # split into values
+      r3 <- as.numeric(c(r3[[1]])) # grab checkpoint number
+      rl <- paste0("checkpoint",r3[1]) # make a label out of checkpoint number
+      r4[[rl]] <- r3 # add label to checkpoint results and add to list
     }
     reactiveResultsVars$rslt <- r4
     
@@ -439,12 +470,12 @@ Row {data-height=150}
 
 ### Planned analyses (checkpoints)
 
-##### How many times do you want to "peek" and analyze test results? 
+##### How many times do you want to "peek" and analyze test results? (max 18)
 
 ```{r}
 div(
 div(style="display:inline-block;", numericInput(
-  "checknum", label = NULL, min = 2, max = 1000, value = 4, step = 1, width = 100
+  "checknum", label = NULL, min = 2, max = 18, value = 4, step = 1, width = 100
 )),
 div(style="display:inline-block; padding-left: 5px;", "(Including final analysis)"))
 ```
@@ -453,7 +484,7 @@ div(style="display:inline-block; padding-left: 5px;", "(Including final analysis
 ```{r createAndStoreDesign, include=FALSE}
 # CREATE SEQUENTIAL TEST DESIGN
 # Listen for changes in any inputs or submitted results
-observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$tls, input$checknum, reactiveResultsVars$rslt),{
+observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$tls, input$checknum, reactiveResultsVars$tgl),{ #}, reactiveResultsVars$rslt),{
   req(input$cvra > 0)
   req(input$mde > 0)
   req(input$nonf >= 0)
@@ -461,12 +492,16 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   
   reactiveDesignVars$tls <- as.numeric(input$tls)
   
-  # If there are results, it's a difference function call (boundaries are adjusted)
-  if (is.null(reactiveResultsVars$rslt)) {
-    testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum)
-  } else  {
-    testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum, reactiveResultsVars$rslt)
-  }
+  tryCatch({
+    
+    # If there are results, it's a difference function call (boundaries are adjusted)
+    if (is.null(reactiveResultsVars$rslt)) {
+      testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum)
+    } else  {
+      #req(reactiveDesignVars$seqn > reactiveResultsVars$rslt[[1]][[3]])
+      testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum, reactiveResultsVars$rslt)
+    }
+  
   
   # Take all the design outputs and assign to individual variables used throughout app
   reactiveDesignVars$fixedn <- testDesign$n.fix*2
@@ -524,6 +559,9 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
       }
     }
   }
+  }, error = function(e) {
+    showNotification("Whoops! How embarrassing. Seems you triggered an error. Pleast consider reporting the bug using the link at the bottom of this document.", type="error", duration = 5)
+  })
 })
 
 
@@ -663,7 +701,7 @@ Row
 
 ### Enter results
 
-```{r}
+```{r resultsA}
 h3("Control Experience")
 div(class='three-c',
   h5('Conversions'),
@@ -685,7 +723,7 @@ div(class='three-c',
 
 ```
 
-```{r}
+```{r resultsB}
 h3("Test Experience")
 div(class='three-c',
   h5('Conversions'),
@@ -708,7 +746,7 @@ div(class='three-c',
 ```
 
 
-```{r}
+```{r zscorecalc}
 h3("Calculations")
 div(class = 'three-c',
     h5('Difference'),
@@ -724,7 +762,7 @@ div(class = 'three-c',
     
 ```
 
-```{r}
+```{r checkpointselection}
 h3("Checkpoint selection")
 h5(style="margin:10px;",
    "Which analysis do these results apply to?")
@@ -739,7 +777,7 @@ div(class = "slider",
 output$checkSelect <- renderUI({
   sliderInput("checkpoint",
               NULL,
-              min = 1, 
+              min = 1,
               max = input$checknum,
               value = 1,
               step = 1,
@@ -807,6 +845,7 @@ observeEvent(input$addResults, {
   rsltList <- c(input$checkpoint,input$aConversions,input$aTraffic,input$bConversions,input$bTraffic,zadd)
   
   reactiveResultsVars$rslt[[rownum]] <- rsltList
+  reactiveResultsVars$tgl <- reactiveResultsVars$tgl * -1
 
 }, ignoreInit = TRUE)
 
@@ -834,7 +873,7 @@ observeEvent(input$checkpoint, {
 The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date.
 
 
-```{r}
+```{r testanalysis}
 # Table
 div(class = "ztable", gt_output("resultTable"))
 
@@ -854,8 +893,7 @@ br(),
 h4(actionLink("clear","Clear all results"))
 )
 br()
-
-
+  
 # Boundary Plot
 div(class = "bounds",
 plotOutput("boundPlot")
@@ -865,6 +903,7 @@ plotOutput("boundPlot")
 
 
 ```{r tableOutput, include=FALSE}
+
 output$resultTable <- render_gt({
   gt(reactiveDesignVars$table$complete) %>%
     cols_label(times = "% Complete",
@@ -998,6 +1037,8 @@ output$boundPlot <- renderPlot({
     geom_line(mapping = aes(y=upper), color = "cyan3") +
     geom_line(mapping = aes(y=lower), color = "brown1") +
     geom_line(mapping = aes(y=results), color = "chartreuse3", linetype = 2) +
+    geom_ribbon(mapping = aes(ymin = min(lower), ymax = lower), fill = "brown1", alpha = .6) +
+        geom_ribbon(mapping = aes(ymin = upper, ymax = max(upper)), fill = "cyan3", alpha = .6) +
     #geom_point(mapping = aes(y=results), color = "chartreuse3") +
     theme_light() +
     labs(x="Sample Size", y="Z-score") +
@@ -1015,12 +1056,13 @@ output$boundPlot <- renderPlot({
 
 Row {data-height=50}
 -----------------------------
-v2.3 - Thanks for coming, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v2.4 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+
 
 Row {data-height=75}
 -----------------------------
 
-```{r}
+```{r technotes}
 p(
   class = 'postS',
   strong("Technical Bits"),
@@ -1038,7 +1080,7 @@ p(
   " The approaches differ in terms of the shape of the boundary curve (or lack thereof) and how ",
   " conservative the approach to alpha and beta spending. For 1-tail tests, we use test.type=4, sfu=sfPower, sfupar=3, and sflpar=2 ",
   "as parameters for the design function. These specify a Kim-Dements power spending function with a non-binding lower boundary ",
-  "and a binding upper boundary as well as a more conservative (harder to pass)",
+  "and a binding upper boundary, as well as a more conservative (harder to pass)",
   "early upper boundary than lower boundary. For 2-tail tests, we use test.type=2 instead which makes both boundaries binding."
 )
 
@@ -1046,7 +1088,7 @@ p(
 
 Row {data-height=100}
 -----------------------------
-```{r}
+```{r credits}
 p(
   class = 'postS',
   strong("Credits"),
@@ -1055,7 +1097,7 @@ p(
   'Pocock, O\'Brien, Flemming, Lan, Kim, Demets, Jennison, Turnbill and many others blazed the trails. ',
   br(),
   'Georgi Georgiev synthesized the academics\' work and appropriated it for online a/b testing. ',
-  'His body of literature over at analytics-toolkit.com", provides an excellent introduction to the statistics and a guidebook on how to use them. ',
+  'His body of literature over at analytics-toolkit.com, provides an excellent introduction to the statistics and a guidebook on how to use them. ',
   'We based the alpha spending functions in our calculator on those documented in his AGILE method. ',
   'Also, his suite of calculators is excellent.',
   'In fact, it\'s worth noting that Georgiev\'s treatment of bias in confidence calculations is preferrable ',
