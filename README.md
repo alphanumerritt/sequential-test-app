@@ -12,6 +12,12 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - Adjusted boundary values for multiple testing scenarios (multiple variants or metrics)
 
 ## Version history
+- v2.5 Apr 14, 2021
+    - Fixed bug with shortcut loading
+    - Limited check-ins to 18, greater than 18 throws an error with gsDesign package (not certain why)
+    - Optimization added for design creation code - no longer creates 2 designs by default, only when adding results
+    - Added error message if there's ever a problem processing the test design, it won't crash the app
+    - Added color to the boundary plot efficacy and futility areas
 - v2.1 Minor updates to wording, some code simplifications, improvements to readme file, versioning added
   - Multiple comparisons input added to shortcut links, old links with results need to be updated
     - Old link without results: 95,80,10,10,1,0,10000,4,1000,7,
