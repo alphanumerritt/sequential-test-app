@@ -416,9 +416,8 @@ output$adjBounds <- render_gt({
 
   comps <- input$numVars + 1
   
-  for (i in seq(1:input$numVars)) {
-    # labVar <- if (i == 1) " " else " next "
-    # colLab <- paste0("Adjusted upper boundary for",labVar,"highest z-score")
+  for (i in seq(1:comps)) {
+
     rank <- paste0("Z-",i)
     
     pVals <- 1-pnorm(reactiveDesignVars$table$complete$upper)
@@ -438,6 +437,13 @@ output$adjBounds <- render_gt({
       container.height = 300,
       container.overflow.x = TRUE,
       container.overflow.y = TRUE)
+})
+
+output$multiwarn <- renderUI({
+  if (input$numVars > 0) {
+  div(id="multiplewarning",
+      "Looks like you have configured the test to run with multiple variants or metrics to compare. Many features will not display due to this.")
+  }
 })
 
 ```
@@ -569,11 +575,47 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
 
 ### Sample size comparison
 ```{r sampleOutputs, include=FALSE}
-output$fixedN <- renderText({format(round(reactiveDesignVars$fixedn), big.mark=",", scientific = FALSE)})
-output$fixedDays <- renderText({round(reactiveDesignVars$fixedn/(input$traff/input$dayNum))})
-output$seqN <- renderText({format(round(reactiveDesignVars$seqn), big.mark=",", scientific = FALSE)})
-output$maxDays <- renderText({round(reactiveDesignVars$seqn/(input$traff/input$dayNum))})
-output$diff <- renderText({paste0(round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100),"%")})
+output$fixedN <- renderText({
+  # If there are multiple comparisons, we'll report in terms of per variation sample size since we can't assume the comparisons are separate variants.
+  if (input$numVars < 1) {
+    result <- format(round(reactiveDesignVars$fixedn), big.mark=",", scientific = FALSE)
+  } else {
+    val <- reactiveDesignVars$fixedn / 2
+    result <- format(round(val), big.mark=",", scientific = FALSE)
+    result <- paste(result,"per variant")
+  }
+  
+  result
+  
+  })
+
+output$fixedDays <- renderText({
+  # If there are multiple comparisons, we'll report in terms of per variation days since we can't assume the comparisons are separate variants.
+  if (input$numVars < 1) round(reactiveDesignVars$fixedn/(input$traff/input$dayNum)) else round(reactiveDesignVars$fixedn/2/(input$traff/input$dayNum))
+  
+  })
+
+output$seqN <- renderText({
+  # If there are multiple comparisons, we'll report in terms of per variation sample size since we can't assume the comparisons are separate variants.
+  if (input$numVars < 1) {
+    result <- format(round(reactiveDesignVars$seqn), big.mark=",", scientific = FALSE)
+  } else {
+    val <- reactiveDesignVars$seqn / 2
+    result <- format(round(val), big.mark=",", scientific = FALSE)
+    result <- paste(result,"per variant")
+  }
+  
+  result
+  
+  })
+
+output$maxDays <- renderText({
+# If there are multiple comparisons, we'll report in terms of per variation days since we can't assume the comparisons are separate variants.
+  if (input$numVars < 1) round(reactiveDesignVars$seqn/(input$traff/input$dayNum)) else round(reactiveDesignVars$seqn/2/(input$traff/input$dayNum))  })
+
+output$diff <- renderText({
+  paste0(round((reactiveDesignVars$seqn/reactiveDesignVars$fixedn-1)*100),"%")
+  })
 ```
 
 
@@ -612,6 +654,8 @@ This chart plots the likelihood of crossing a decision boundary at each checkpoi
 
 # Configure the power plot
 output$pwrPlot <- renderPlot({
+  req(input$numVars == 0)
+
   probOb <- reactiveDesignVars$probOb
   deltas <- reactiveDesignVars$deltas/100
   
@@ -647,7 +691,9 @@ output$pwrPlot <- renderPlot({
 ```
 
 ```{r}
-div(plotOutput("pwrPlot"))
+div(plotOutput("pwrPlot"), 
+    uiOutput("multiwarn")
+    )
 ```
 
 ### Expected sample size by effect size
@@ -657,6 +703,8 @@ This chart displays the expected sample size by the actual effect size of the tr
 # Configure the expected sample size plot
 output$samplePlot <- renderPlot({
   req(as.numeric(input$tls) < 2)
+  req(input$numVars == 0)
+
   
   nList <- reactiveDesignVars$table$samples
   probOb <- reactiveDesignVars$probOb
@@ -769,27 +817,33 @@ div(class = 'three-c',
 ```
 
 ```{r checkpointselection}
-h3("Checkpoint selection")
+#h3("Checkpoint selection")
 h5(style="margin:10px;",
    "Which analysis do these results apply to?")
 div(class = "slider",
-    div(htmlOutput("checkSelect")),
-    h4(actionLink("addResults", "Add results to the analysis for the selected checkpoint")))
+    div(id="checkselectipt", htmlOutput("checkSelect")),
+    div(id="checkselectbtn", actionLink("addResults", "Add to results")),
+    div(id="checkselecttxt", "(added to the selected checkpoint)")
+        )
 ```
 
 ```{r resultsOutputs, include=FALSE}
 # Configure results outputs except for plots -- those are in their corresponding section
 # Slider output
 output$checkSelect <- renderUI({
-  sliderInput("checkpoint",
+  selectInput("checkpoint",
+  #sliderInput("checkpoint",
               NULL,
-              min = 1,
-              max = input$checknum,
-              value = 1,
-              step = 1,
-              round = TRUE,
-              ticks = FALSE,
-              pre = "Analysis #")
+              choices = seq(1,input$checknum),
+              selected = 1)
+              #width = "15%")
+              #min = 1,
+              #max = input$checknum,
+              #value = 1,
+              #step = 1,
+              #round = TRUE,
+              #ticks = FALSE,
+              #pre = "Analysis #")
 })
 
 # Conversion rate calculation outputs
@@ -846,9 +900,10 @@ output$proportion <- renderText({
 
 # CTA action adds current inputs to reactive results list
 observeEvent(input$addResults, {
-  rownum <- paste0("checkpoint",input$checkpoint)
+  inchk <- as.numeric(input$checkpoint)
+  rownum <- paste0("checkpoint",inchk)
   zadd <- reactiveResultsVars$z
-  rsltList <- c(input$checkpoint,input$aConversions,input$aTraffic,input$bConversions,input$bTraffic,zadd)
+  rsltList <- c(inchk,input$aConversions,input$aTraffic,input$bConversions,input$bTraffic,zadd)
   
   reactiveResultsVars$rslt[[rownum]] <- rsltList
   reactiveResultsVars$tgl <- reactiveResultsVars$tgl * -1
@@ -861,7 +916,7 @@ observeEvent(input$checkpoint, {
   for (i in 1:length(reactiveResultsVars$rslt)) {
       d <- reactiveResultsVars$rslt[i]
       a <- d[[1]][1]
-      if (!is.null(a) && a == input$checkpoint) {
+      if (!is.null(a) && a == as.numeric(input$checkpoint)) {
         updateNumericInput(session,"aConversions", value = d[[1]][2])
         updateNumericInput(session,"aTraffic", value = d[[1]][3])
         updateNumericInput(session,"bConversions", value = d[[1]][4])
@@ -896,7 +951,8 @@ div(class = "big",
 ),
 br(),
 # Clear results linke
-h4(actionLink("clear","Clear all results"))
+#h4(actionLink("clear","Clear all results"))
+div(actionLink("clear","Clear all results"))
 )
 br()
   
@@ -911,6 +967,7 @@ plotOutput("boundPlot")
 ```{r tableOutput, include=FALSE}
 
 output$resultTable <- render_gt({
+  req(input$numVars == 0)
   gt(reactiveDesignVars$table$complete) %>%
     cols_label(times = "% Complete",
                samples = "Total Sample",
@@ -1032,6 +1089,7 @@ output$interval <- renderText({
 
 ```{r resultsPlot, include=FALSE}
 output$boundPlot <- renderPlot({
+  req(input$numVars == 0)
 
   df <- reactiveDesignVars$table$complete
   df$results[df$results == 0] <- NA 
@@ -1070,7 +1128,7 @@ output$boundPlot <- renderPlot({
 
 Row {data-height=50}
 -----------------------------
-v2.6 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v2.7 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 
 Row {data-height=75}

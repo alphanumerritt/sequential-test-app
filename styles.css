@@ -38,18 +38,37 @@ body {
 }
 
 /* Quick load elements */
-.ql {
+.ql, #checkselectipt, #checkselectbtn, #checkselecttxt {
 	display: inline-block;
 	margin: 5px 10px 0 5px;
 }
 
 /* Checkpoint selector + CTA in Results */
 .slider {
-	width: 50% !important;
+/*	width: 50% !important;*/
 	vertical-align: top;
 	margin: 10px auto;
-	text-align: center;
+/*	text-align: center;*/
+}
 
+.selectize-dropdown {
+  position:initial !important;
+}
+
+#checkselectipt {
+  width: 70px;
+}
+
+#checkselectbtn, #checkselecttxt {
+  vertical-align: top;
+  padding-top: 5px;
+}
+/* Multiple comparison warning */
+#multiplewarning {
+  color: red;
+  font-size: 16px;
+  padding: 30px;
+  font-weight: 700;
 }
 
 /* Emphasized output text */
@@ -126,7 +145,7 @@ h5 {
 .confidence {
 	max-width: 500px;
 	margin: auto;
-	text-align: center;
+	text-align: right;
 }
 
 /* Overall app title */
@@ -161,4 +180,13 @@ h5 {
 	font-size: 13px;
 	padding: 6px 0;
 	margin: 0;
+}
+
+/* Button formats */
+.btn, #clear, #addResults {
+	font-size: 12px;
+    padding: 6px;
+    background: #1967be;
+    color: white;
+    border-color: #868383;
 }
