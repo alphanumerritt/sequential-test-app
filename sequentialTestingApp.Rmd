@@ -681,7 +681,8 @@ output$pwrPlot <- renderPlot({
     pivot_longer(cols = !contains("Effects"), names_to = c("Boundary","Checkpoint"), names_pattern = "(.*)_Checkpoint(.*)", values_to = "Probability") 
   
   ggplot(df, aes(x=Effects, y=Probability, color=Boundary, linetype=Checkpoint)) +
-    geom_line() +
+    #geom_line() +
+    geom_smooth(method="gam", se=FALSE, fullrange=FALSE, size=.75) +
     theme_light() +
     scale_y_continuous(labels = scales::percent_format(accuracy=1), n.breaks = 10) +
     scale_x_continuous(labels = scales::percent, n.breaks = 8)
@@ -950,7 +951,7 @@ div(class = "big",
   textOutput("interval")
 ),
 br(),
-# Clear results linke
+# Clear results link
 #h4(actionLink("clear","Clear all results"))
 div(actionLink("clear","Clear all results"))
 )
@@ -992,6 +993,7 @@ observeEvent(input$clear, {
   
   reactiveResultsVars$rslt <- NULL
   reactiveResultsVars$win <- NULL
+  reactiveDesignVars$table$complete$results <- 0
 }, ignoreInit = TRUE)
 ```
 
@@ -1128,7 +1130,7 @@ output$boundPlot <- renderPlot({
 
 Row {data-height=50}
 -----------------------------
-v2.7 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v2.8 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 
 Row {data-height=75}

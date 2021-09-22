@@ -12,6 +12,9 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - Adjusted boundary values for multiple testing scenarios (multiple variants or metrics)
 
 ## Version history
+- v2.8 Sep 22, 2021
+    - Smoothed lines in power plot
+    - Fixed added to Clear Results button 
 - v2.7 Apr 15, 2021
     - Fixed sample size reported when multiple comparisons is selected (reports by variant)
     - Power plot, sample plot, results table, and boundary plots now hide if multiple comparisons selected
