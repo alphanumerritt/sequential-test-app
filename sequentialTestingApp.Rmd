@@ -1,12 +1,19 @@
 ---
-title: "Sequential Testing App"
-author: "Merritt Aho"
-date: "11/20/2020"
+title: "Experimentation Tools | Sequential Testing"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     css: styles.css
     vertical_layout: scroll
+    logo: logo-sm.png
+    favicon: favicon.png
+    fig_height: 1
+    navbar: 
+      - { title: "Results Analysis", href: "https://sdidev.shinyapps.io/ABTestAnalysis/" }
+      - { title: "Sample Size", href: "https://sdidev.shinyapps.io/sample-size-calculator/" }
+      - { title: "Runtime", href: "https://sdidev.shinyapps.io/sample-size-calculator-runtime/" }
+      - { title: "Impact Simulation", href: "https://sdidev.shinyapps.io/test-result-simulator/" }
+      - { title: "Experimentation ROI", "href:https://sdidev.shinyapps.io/experimentation-roi/" }
 runtime: shiny
 ---
 
@@ -19,9 +26,14 @@ library(gsDesign)
 library(dplyr)
 library(tidyr)
 library(gt)
+library(capture)
 
 
 ```
+
+<script>
+$('.navbar-logo').wrap('<a href="https://www.searchdiscovery.com/how-we-help/services/optimization/" target=_blank>');
+</script>
 
 <div style="display: none;">
 ```{r url_bookmarking, include = FALSE}
@@ -167,8 +179,8 @@ getz <- function (a,b,c,d,e) {round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0
 ```{r loadtextshortcut}
 
 # Input to load a configuration from shortcut
-div(
-  h5(class = "ql", "Load configuration shortcut: "),
+div(id = "configLoad",
+  h5(class = "ql", "Paste configuration shortcut: "),
   div(class = "ql", textInput("shortcut", NULL, width = "100px")),
   h5(style = "display:inline-block", actionLink("loadShortcut", label = "Load Shortcut")),
   
@@ -251,7 +263,7 @@ observeEvent(input$loadShortcut, {
 ```
 
 Row {.tabset data-height=370} 
------------------------------
+-----------------------------------------------------------------------
 
 ### Test Configuration
 
@@ -323,49 +335,92 @@ div(
 ### Current Traffic
 
 ```{r}
-# 3 column inputs
-div(class = "three-c",
+# 2 column inputs
+div(class = "input-two-c",
+    h5("Enter current conversion volume to test area"),
+    div(numericInput("conversions", NULL, value=2100, step = 100)), 
+
     h5("Enter current traffic volume to test area"),
     div(numericInput(inputId = "traff",
              label = NULL,
-             value = 10000,
-             step = 1000)))
+             value = 20000,
+             step = 1000)), 
 
-div(class = "three-c",
-    h5("Enter current conversion volume to test area"),
-    div(numericInput("conversions", NULL, value=1000, step = 100)))  
+    h5("Calculated base conversion rate"),
+    div(class = "big", textOutput("currentCvr", inline = TRUE))
+)
 
-div(class = "three-c",
-    h5("Calculated base conversion rate:"),
-    div(class = "big", textOutput("currentCvr", inline = TRUE)))
-
-# Intedned to flow to 2nd row even though width %s should allow it to fit
-div(class = "three-c",
+div(class = "input-two-c",
     h5("How many days of traffic is this?"),
-    div(numericInput("dayNum", NULL, value=7, step = 1)))
+    div(numericInput("dayNum", NULL, value=28, step = 1)),
+    
+    h5("Estimated traffic per week"),
+    div(class = "big", textOutput("week_traffic", inline = TRUE))
+    
+    )
 
 ```
 
 
-```{r baseConversionCalculation}
+```{r historical_calculations}
 # Output calculated conversion rate from current traffic inputs
-output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1),"%")})
+output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,2),"%")})
+
+# Output calculated traffic per week
+output$week_traffic = renderText({paste(round(input$traff/input$dayNum)*7," visitors")})
 
 ```
 
 
 ### Help
-`Confidence level` - This is ($1 - \alpha$) where $\alpha$ is your nominal false positive (type-1) error rate when the true effect size is at the null hypothesis threshold.
+##### Confidence level
+This is ($1 - \alpha$) where $\alpha$ is your nominal false positive (type-1) error rate when the true effect size is at the null hypothesis threshold.
 
-`Power` - This is ($1 - \beta$) where $\beta$ is your nominal false negative (type-2) error rate. It represents your likelihood of getting a statisticaly significant positive result when the true effect size is the Minimum Detectable Effect.
+##### Power
+This is ($1 - \beta$) where $\beta$ is your nominal false negative (type-2) error rate. It represents your likelihood of getting a statisticaly significant positive result when the true effect size is the Minimum Detectable Effect.
 
-`Tails` - Tails refer to the outside ends of a cumulative probability distribution and essentially reflect the framing of your null hypothesis. Typically 1-tail is the ideal choice for optimization experiments.
+##### Tails
+Tails refer to the outside ends of a cumulative probability distribution and essentially reflect the framing of your null hypothesis. Typically 1-tail is the ideal choice for optimization experiments.
 
-`Minimum Detectable Effect` - a.k.a. Minimum Effect of Interest is the true difference at which Power is guaranteed. So if the true difference in conversion rates is `MDE`, you'll get a true positive `Power`% of the time.
+##### Minimum Detectable Effect
+a.k.a. Minimum Effect of Interest is the true difference at which Power is guaranteed. So if the true difference in conversion rates is `MDE`, you'll get a true positive `Power`% of the time.
 
-`Non-inferiority margin` - Often, "no practical difference" can be somewhat lower than "0 difference". The non-inferiority margin ($\Delta$) is that margin of indifference. $\alpha$ is guaranteed at $Base ConversionRate(1- \Delta)$.
+##### Non-inferiority margin
+Often, "no practical difference" can be somewhat lower than "0 difference". The non-inferiority margin ($\Delta$) is that margin of indifference. $\alpha$ is guaranteed at $Base ConversionRate(1- \Delta)$.
 
-`Z-score` - Our "test statistic". Statistical significance is derived from a p-value ($1-p$) which in turn is derived from a z-score. The z-score more or less represents the number of standard deviations away from the mean a specific observation is. Here, the mean is control conversion rate and the observation is the test conversion rate.
+##### Z-score
+Our "test statistic". Statistical significance is derived from a p-value ($1-p$) which in turn is derived from a z-score. The z-score more or less represents the number of standard deviations away from the mean a specific observation is. Here, the mean is control conversion rate and the observation is the test conversion rate.
+
+##### Is a sequential test necessary?
+Sequential testing helps you run efficient tests where the effect is unknown and can vary widely from expectations. It can help save you from negative effects impacting customers during a prolonged test as well as it can reduce test duration when you want to react to a large positive difference. That said, it's a more complicated approach to testing and might not be worth your trouble. **Before** committing to a sequential test, check the expected duration with a fixed design. It's healthy to run tests for 2 weeks to capture a few business cycles. If you don't need more than that, consider just sticking with a fixed design.
+
+##### Shortcuts (saving your work)
+Above the input panel, there is a place to copy a shortcut to the current configuration including any results entered to date, or to load a shortcut from a past configuration. We know, a url would be ideal. Alas! Free software! 
+
+##### 1-tail vs 2-tail
+Selecting 1-tail for a 'superiority test' will produce a **futility boundary**, allowing you to end the test early when test results are poor and a comeback is not likely while preserving power. Selecting 2-tail will produce identical (symmetrical) upper and lower decision boundaries.
+
+##### Using the Power Plot
+Use the power plot to help you plan your test configuration. The probabilities of false positives and false negatives at different effect sizes can prove very informative. Try adding a **non-inferiority margin** and see what happens!
+
+##### Timing adjustments
+By default, checkpoints are planned at even intervals. However, should your actual checkpoints differ, **boundaries and checkpoints will automatically adjust** whenever you enter results. 
+    * To be explicit, you are not bound to the *timing* of the check-ins, only to the number of check-ins.
+
+##### Early check-ins
+You might want to **plan your first check for early** in the test. This could help identify problematic test experiences and prevent loss.
+
+##### Non-binding decision boundary
+The **lower** decision boundary for a 1-tail test is what's known as a **non-binding** boundary. This means, when you cross it, you can still choose to continue the test while preserving your type-1 error rate and only improving your power. 
+
+##### Binding decision boundary
+The **upper** decision boundary in a 1-tail test and both boundaries in a 2-tail test are **binding** boundaries. When your results cross them, you must end the test in order to preserve your type-1 error rate.
+
+##### P-value adjustments
+Standard Confidence Interval and p-value calculations will be understated and cannot be taken at face value. **We provide adjusted p-values and confidence intervals** when the upper (efficacy) boundary is crossed.
+
+##### Why use z-scores?
+You are likely more accustomed to seeing p-values, which are derived from the z-score. But we don't show the p-value because it cannot be interpretted as it normally would be in a fixed-horizon test. In other words, we're trying to avoid misinterpretation and statistical faux pas.
 
 
 ### Multiple Comparisons
@@ -391,14 +446,17 @@ output$currentCvr = renderText({paste(round(input$conversions/input$traff*100,1)
 div(class = "input-two-c multiple",
     h4("Warning: Advanced!"),
     #br(),
-    p("The Results Analysis panel will be rendered inaccurate in the case of multiple testing (calculating p-values for multiple test variations or metrics). We use the Holm method to make adjustments to the z-score boundary for each comparison. Only the upper boundary is given which means that for 1-tail, there will be no futility boundary and for 2-tail you just switch the sign when the difference is negative."),
-    p("When analyzing, you must rank z-scores high to low by their absolute values and apply the new z-score boundaries provided in the table. 'Z-1' applies to the highest z-score and so on."),
+    p("The Results Analysis panel will be rendered inaccurate in the case of multiple testing (calculating p-values for multiple test variations or metrics). We use the ",
+      tags$a(href="https://en.wikipedia.org/wiki/Holm%E2%80%93Bonferroni_method", "Holm method"), 
+      "to make adjustments to the z-score boundary for each comparison. Only the upper boundary is given which means that for 1-tail, there will be no futility boundary and for 2-tail you just switch the sign when the difference is negative."),
+    
     h5("How many additional variants or metrics are you testing?"),
     div(numericInput("numVars",
                  label = NULL, value = 0, min = 1, max = 20, step = 1))
 )
 
 div(class = "input-two-c large",
+    p("When analyzing, you must rank z-scores high to low by their absolute values and apply the new z-score boundaries provided in the table. 'Z-1' applies to the highest z-score and so on."),
     gt_output("adjBounds")
 )
 
@@ -412,6 +470,7 @@ output$adjBounds <- render_gt({
   
   df <- data.frame(
     checkpoints = paste("Checkpoint",seq(1,input$checknum)),
+    maxSample = reactiveDesignVars$table$complete$samples / 2,
     origZscors = reactiveDesignVars$table$complete$upper) 
 
   comps <- input$numVars + 1
@@ -431,10 +490,16 @@ output$adjBounds <- render_gt({
   
   gt(df) %>%
     fmt_number(columns = contains("z"), decimals = 2) %>%
+    fmt_number(columns = contains("sample"), decimals = 0) %>%
+    cols_width(contains("check") ~ px(90),
+               contains("sample") ~ px(80),
+               contains("zscor") ~ px(70)
+               ) %>% 
     cols_label(checkpoints = "",
+               maxSample = "(Max) Sample Size Per Variant",
                origZscors = "Old Boundary") %>%
     tab_options(
-      container.height = 300,
+      container.height = 275,
       container.overflow.x = TRUE,
       container.overflow.y = TRUE)
 })
@@ -448,28 +513,6 @@ output$multiwarn <- renderUI({
 
 ```
 
-### Tips
-
-`Is this necessary?` **Before** committing to a sequential test, check the expected duration with a fixed design. It's healthy to run tests for 2 weeks to capture a few business cycles.
-
-`Quick-load shortcuts` The shortcut string offered atop the app will save you a ton of time by loading the entire configuration as you currently find it, including results entered.
-
-`1-tail vs 2-tail` Selecting 1-tail for a 'superiority test' will produce a **futility boundary**, allowing you to end the test early when test results are poor and a comeback is not likely while preserving power. Selecting 2-tail will produce identical (symmetrical) upper and lower decision boundaries.
-
-`Use the Power Plot` to help you plan your test configuration. The probabilities of false positives and false negatives at different effect sizes can prove very informative. Try adding a **non-inferiority margin** and see what happens!
-
-`Timing adjustments` The previous version of this calculator allowed you to easily change the timing of the checkpoints vs. spacing them evenly. That step is now unnecessary since **boundaries and checkpoints will automatically adjust** whenever you enter results. 
-    * To be explicit, you are not bound to the *timing* of the check-ins, only to the number of checkins.
-
-`Early check-ins` You might want to **plan your first check for early** in the test. This could help identify problematic test experiences and prevent loss.
-
-`Non-binding decision boundary` The **lower** decision boundary for a 1-tail test is what's known as a **non-binding** boundary. This means, when you cross it, you can still choose to continue the test while preserving your type-1 error rate and only improving your power. 
-
-`Binding decision boundary` The **upper** decision boundary in a 1-tail test and both boundaries in a 2-tail test are **binding** boundaries. When your results cross them, you must end the test in order to preserve your type-1 error rate.
-
-`P-value adjustments` Standard Confidence Interval and p-value calculations will be understated and cannot be taken at face value. **We provide adjusted p-values and confidence intervals** when the upper (efficacy) boundary is crossed.
-
-`Why use z-scores?` You are likely more accustomed to seeing p-values, which are derived from the z-score. But we don't show the p-value because it cannot be interpretted as it normally would be in a fixed-horizon test. In other words, we're trying to avoid misinterpretation and statistical faux pas.
 
 Row {data-height=150}  
 -----------------------------
@@ -524,9 +567,22 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   negD <- -m+n
   posD <- m-n
   
-  reactiveDesignVars$deltas <- c(negD*1+n,negD*.75+n,negD*.5+n,negD*.25+n,n,posD*.25+n,posD*.5+n,posD*.75+n,m,posD*1.25+n,posD*1.5+n,posD*1.75+n,posD*2+n,posD*2.25+n,posD*2.5+n)
+  delta_list <- c()
+  theta_list <- c()
+  
+  if (input$tls == 2) {
+    delta_list <- c(negD*2.5, negD*2.25, negD*2, negD*1.75, negD*1.5, negD*1.25)
+    theta_list <- seq(-2.5,-1.25,.25)
+  }
+  
+  delta_list <- c(delta_list,negD*1+n,negD*.75+n,negD*.5+n,negD*.25+n,n,posD*.25+n,posD*.5+n,posD*.75+n,m,posD*1.25+n,posD*1.5+n,posD*1.75+n,posD*2+n,posD*2.25+n,posD*2.5+n)
+  
+  reactiveDesignVars$deltas <- delta_list
+  theta_list <- c(theta_list,seq(-1,2.5,.25))
+  
+  # reactiveDesignVars$deltas <- c(negD*1+n,negD*.75+n,negD*.5+n,negD*.25+n,n,posD*.25+n,posD*.5+n,posD*.75+n,m,posD*1.25+n,posD*1.5+n,posD*1.75+n,posD*2+n,posD*2.25+n,posD*2.5+n)
   # reactiveDesignVars$deltas <- seq(-1,2.5,.25)*(input$mde+input$nonf)
-  thetas <- seq(-1,2.5,.25)*testDesign$delta
+  thetas <- theta_list*testDesign$delta
   reactiveDesignVars$probOb <- gsProbability(d = testDesign, theta = thetas)
 
   # DF for results outputs
@@ -703,7 +759,7 @@ This chart displays the expected sample size by the actual effect size of the tr
 ```{r expectedSamplePlot}
 # Configure the expected sample size plot
 output$samplePlot <- renderPlot({
-  req(as.numeric(input$tls) < 2)
+  #req(as.numeric(input$tls) < 2)
   req(input$numVars == 0)
 
   
@@ -711,20 +767,38 @@ output$samplePlot <- renderPlot({
   probOb <- reactiveDesignVars$probOb
   deltas <- reactiveDesignVars$deltas/100
   nperDay <- round(input$traff/input$dayNum) 
-
-  upProb <- data.frame(probOb$upper$prob*nList) %>%
-   t() %>%
-   data.frame() %>%
-   mutate(expLength = rowSums(.)) %>%
-   mutate(effects = deltas) 
   
-  loProb <- data.frame(probOb$lower$prob*nList) %>%
-   t() %>%
-   data.frame() %>%
-   mutate(expLength = rowSums(.)) %>%
-   mutate(effects = deltas)
+  # Combine probabilites of crossing upper and lower boundaries for different effect sizes
+  combo_probs <- probOb$upper$prob+probOb$lower$prob 
 
-  df <- data.frame(Effects = deltas, ExpSample = upProb$expLength+loProb$expLength)
+  combo_probs <- head(combo_probs,-1) # Drop last checkpoint 
+  last_row <- 1-colSums(combo_probs)  # New vector for last checkpoint taking 1 - sum of prior checkpoints
+  combo_probs <- combo_probs %>% 
+    rbind(last_row)    # Put them together
+  
+  # Multiply probabilities by sample sizes at checkpoints
+  combo_probs <- round(combo_probs * nList) %>% 
+    t() %>%
+    data.frame() %>%
+    mutate(expLength = rowSums(.)) %>%
+    mutate(effects = deltas)
+
+  # upProb <- data.frame(probOb$upper$prob*nList) %>%
+  #  t() %>%
+  #  data.frame() %>%
+  #  mutate(expLength = rowSums(.)) %>%
+  #  mutate(effects = deltas) 
+  # 
+  # loProb <- data.frame(probOb$lower$prob*nList) %>%
+  #  t() %>%
+  #  data.frame() %>%
+  #  mutate(expLength = rowSums(.)) %>%
+  #  mutate(effects = deltas)
+  # 
+  # df <- data.frame(Effects = deltas, ExpSample = upProb$expLength+loProb$expLength)
+
+  # Make df of expected sample size by effect
+  df <- data.frame(Effects = deltas, ExpSample = combo_probs$expLength)
 
   spline_df <- as.data.frame(spline(df$Effects, df$ExpSample))
  
@@ -739,7 +813,6 @@ output$samplePlot <- renderPlot({
     labs(y="Expected Sample Size") +
     theme_light() +
     scale_x_continuous(labels = scales::percent, n.breaks = 8) + 
-    #scale_y_continuous(labels = scales::comma) +
     scale_y_continuous(sec.axis = sec_axis(~ ./nperDay, name = "Estimated Duration (Days)"), labels = scales::comma)
   
 }, height = 350)
@@ -848,8 +921,8 @@ output$checkSelect <- renderUI({
 })
 
 # Conversion rate calculation outputs
-output$aRate <- renderText({paste0(round(input$aConversions / input$aTraffic * 100,1), "%")})
-output$bRate <- renderText({paste0(round(input$bConversions / input$bTraffic * 100,1), "%")})
+output$aRate <- renderText({paste0(round(input$aConversions / input$aTraffic * 100,2), "%")})
+output$bRate <- renderText({paste0(round(input$bConversions / input$bTraffic * 100,2), "%")})
 
 # Conversion difference
 output$rateDiff <- renderText({
@@ -976,10 +1049,10 @@ output$resultTable <- render_gt({
                lower = "Lower",
                upper = "Upper",
                results = "Outcomes") %>%
-    fmt_percent(columns = vars(times), decimals = 0) %>%
-    fmt_number(columns = vars(samples, days), decimals = 0) %>%
-    fmt_number(columns = vars(lower,upper,results), decimals = 2) %>%
-    tab_spanner(columns = vars(lower,upper), label = "Decision Boundaries")
+    fmt_percent(columns = times, decimals = 0) %>%
+    fmt_number(columns = c(samples, days), decimals = 0) %>%
+    fmt_number(columns = c(lower,upper,results), decimals = 2) %>%
+    tab_spanner(columns = c(lower,upper), label = "Decision Boundaries")
 
   
   }) 
@@ -1127,10 +1200,9 @@ output$boundPlot <- renderPlot({
 
 ```
 
-
 Row {data-height=50}
 -----------------------------
-v2.8 - Thanks for using, for version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v2.9 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 
 Row {data-height=75}

@@ -79,14 +79,35 @@ body {
 }
 
 
-/* Remove the title bar */
+/* Remove the title bar
 .navbar{
   visibility: hidden;
-}
+}*/
 
 /* Set the main body/text font */
-p, a {
+/*p, a {
     font-family: "adelle-sans",helvetica,arial,sans-serf;
+}*/
+p, a, body {
+    font-family: "Lato", helvetica,arial,sans-serf;
+    font-size: 1.1em;
+    margin: 5px 0 5px 0;
+}
+
+/* Make it so configuration shortcult plays nice with nav bar */
+#configLoad {
+  margin-top: 50px;
+}
+
+#configLoad a {
+  font-size: 16px;
+  color: #2780e3;
+  font-weight: 400;
+}
+
+/* pdf button */
+#exportpdf {
+	margin: 15px;
 }
 
 /* Main results output */
@@ -114,6 +135,7 @@ h4 {
 /* Input labels */
 h5 {
 	font-size: 16px;
+	margin-bottom: 5px;
 }
 
 /* In case of large objects */
@@ -121,16 +143,15 @@ h5 {
 	overflow: scroll;
 }
 
-/* Let tips scroll */
-#section-tips .chart-stage {
-	overflow: scroll !important;
-}
-
-
 /* Boundary plot */
 .bounds {
 	width: 90%;
 	margin: auto;
+}
+
+/* Tables */
+.gt_table {
+  font-size: 1.1em !important;
 }
 
 /* Titles at the top of each panel */
@@ -148,21 +169,32 @@ h5 {
 	text-align: right;
 }
 
-/* Overall app title */
+/* Overall app title
 .navbar-brand {
   font-size: 22px;
   font-weight: bold;
-}
+}*/
 
 /* Numerical inputs */
 .form-control {
-  font-size: 17px;
+  font-size: 16px;
   padding: 0 10px;
   background-color: #d6dae0;
   border: none;
   height: 30px;
   max-width : 100px;
   border-radius: 5px;
+}
+
+/* Help section */
+#section-help h5 {
+  margin-bottom: 0px;
+  margin-top: 15px;
+  color: #2780e3;
+}
+
+#section-help .chart-stage {
+	overflow: scroll !important;
 }
 
 /* Output results table */
@@ -190,3 +222,83 @@ h5 {
     color: white;
     border-color: #868383;
 }
+
+/* LOTS of stuff here just to get the navigation bar in order */
+
+/* Set SDI logo size */
+.navbar-logo img {
+	max-width: 150px;
+	margin-top:13px;
+}
+
+/* Navbar lineheight */
+.navbar-nav>li>a {
+	line-height: 1.42857143;
+	padding-top: 10px !important;
+	padding-bottom: 10px !important;
+}
+
+.navbar-inverse {
+  background-color: #221f20;
+  border-color: none;
+  padding: 0px;
+}
+
+.navbar-right {
+  font-family: "Lato",helvetica,arial,sans-serif;
+  position: absolute;
+  display: block;
+  font-size: 1.2em;
+  color: white;
+}
+
+ul.nav.navbar-nav.navbar-right {
+  background: #009CAB;
+  visibility: visible;
+  opacity: 1;
+  display: block;
+  position: relative;
+  transition: all 0.5s ease;
+  padding: 10px 15px;
+  margin: 7px;
+}
+
+ul.nav.navbar-nav.navbar-right::before {
+  content: "More Experimentation Tools";
+  }
+
+ul.nav.navbar-nav.navbar-right:hover > li
+{
+  visibility: visible;
+  opacity: 1;
+  display: block;
+}
+
+ul.nav.navbar-nav.navbar-right li {
+  color: #fff;
+  display: none;
+  visibility: hidden;
+  opacity: 0;
+  float: left;
+  padding: 0;
+  position: relative;
+  transition-duration: 0.5s;
+}
+
+ul.nav.navbar-nav.navbar-right li a {
+  color: #fff;
+  font-weight: normal;
+  font-size: 0.9em;
+    padding: 5px 0 5px 5px;
+}
+
+ul.nav.navbar-nav.navbar-right li>a:hover {
+  background-color: #004D53;
+}
+
+ul.nav.navbar-nav.navbar-right li {
+  clear: both;
+  width: 100%;
+}
+
+/* End all the stuff for the global nav */

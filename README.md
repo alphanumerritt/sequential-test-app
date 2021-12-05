@@ -12,6 +12,11 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - Adjusted boundary values for multiple testing scenarios (multiple variants or metrics)
 
 ## Version history
+- v2.9 Dec 5, 2021
+    - Fixed power and sample plots for 2-tail tests
+    - Added sample sizes to multiple comparison table
+    - Rearranged current traffic inputs and added weekly traffic calculation
+    - Added Search Disocvery navigation bar to other tools
 - v2.8 Sep 22, 2021
     - Smoothed lines in power plot
     - Fixed added to Clear Results button 
