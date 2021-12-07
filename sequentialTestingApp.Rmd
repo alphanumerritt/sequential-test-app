@@ -26,8 +26,6 @@ library(gsDesign)
 library(dplyr)
 library(tidyr)
 library(gt)
-library(capture)
-
 
 ```
 
@@ -87,7 +85,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
       testType <- if (tls1 > 1) 2 else 4
       cvrA <- if (tls1 > 1) base else base * (1 - nonf)
       
-      # FIXED SAMPLE ----
+      # FIXED SAMPLE
       n_fixed <- power.prop.test(
         n = NULL,
         p1 = cvrA,
@@ -110,7 +108,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         beta = 1 - pwr
       )
       
-      # MAX SAMPLE PER VARIATION ----
+      # MAX SAMPLE PER VARIATION
       n_sequential <- tail(design$n.I, 1)
 
 
@@ -120,7 +118,8 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
         # We'll use these to adjust checkpoints if necessary based on checkpoints till now
         highCheckpt <- 0
         chkptIndex <- 0
-        # ANALYSIS CHECKPOINTS ----
+        
+        # ANALYSIS CHECKPOINTS
         #checkpoints <- list()
         multiplier <- 1/k_checks # % of sample between checkpoints
         checkpoints <- seq(1,k_checks)*multiplier*n_sequential
@@ -171,8 +170,6 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
 
 }
 
-# Function the can be called to return a z-score
-getz <- function (a,b,c,d,e) {round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)}
 ```
 
 
@@ -829,17 +826,17 @@ Row
 
 ### Enter results
 
-```{r resultsA}
+```{r varA_results_inputs}
 h3("Control Experience")
 div(class='three-c',
   h5('Conversions'),
-  div(numericInput("aConversions", label = NULL, value = "100", step = 10)
+  div(numericInput("aConversions", label = NULL, value = "200", step = 10)
       )
 )
 
 div(class='three-c',
   h5('Visitors'),
-  div(numericInput("aTraffic", label = NULL, value = "1000", step = 100)
+  div(numericInput("aTraffic", label = NULL, value = "3000", step = 100)
       )
     )
 
@@ -851,17 +848,17 @@ div(class='three-c',
 
 ```
 
-```{r resultsB}
+```{r varB_results_inputs}
 h3("Test Experience")
 div(class='three-c',
   h5('Conversions'),
-  div(numericInput("bConversions", label = NULL, value = "110", step = 10)
+  div(numericInput("bConversions", label = NULL, value = "270", step = 10)
       )
 )
 
 div(class='three-c',
   h5('Visitors'),
-  div(numericInput("bTraffic", label = NULL, value = "1000", step = 100)
+  div(numericInput("bTraffic", label = NULL, value = "3000", step = 100)
       )
     )
 
@@ -874,7 +871,7 @@ div(class='three-c',
 ```
 
 
-```{r zscorecalc}
+```{r zscore_display}
 h3("Calculations")
 div(class = 'three-c',
     h5('Difference'),
@@ -890,34 +887,26 @@ div(class = 'three-c',
     
 ```
 
-```{r checkpointselection}
+```{r checkpoint_selection_input}
 #h3("Checkpoint selection")
-h5(style="margin:10px;",
+h5(style="margin:10px 10px 0px 10px;",
    "Which analysis do these results apply to?")
-div(class = "slider",
+div(class = "chkpt-selector",
     div(id="checkselectipt", htmlOutput("checkSelect")),
     div(id="checkselectbtn", actionLink("addResults", "Add to results")),
     div(id="checkselecttxt", "(added to the selected checkpoint)")
         )
 ```
 
-```{r resultsOutputs, include=FALSE}
+```{r results_outputs, include=FALSE}
 # Configure results outputs except for plots -- those are in their corresponding section
-# Slider output
+
+# Checkpoint selector output
 output$checkSelect <- renderUI({
   selectInput("checkpoint",
-  #sliderInput("checkpoint",
               NULL,
               choices = seq(1,input$checknum),
               selected = 1)
-              #width = "15%")
-              #min = 1,
-              #max = input$checknum,
-              #value = 1,
-              #step = 1,
-              #round = TRUE,
-              #ticks = FALSE,
-              #pre = "Analysis #")
 })
 
 # Conversion rate calculation outputs
@@ -951,7 +940,8 @@ observeEvent(c(input$aConversions, input$bConversions, input$aTraffic, input$bTr
   d <- input$bTraffic
   e <- if (input$nonf > 0) input$nonf/100 else 0
   
-  reactiveResultsVars$z <- getz(a,b,c,d,e)
+  # Calculate a z-score
+  reactiveResultsVars$z <- round(-testBinomial(x1=a, x2=b, n1=c, n2=d, delta0 = a/c*e), digits = 2)
   
 })
 
@@ -1003,42 +993,11 @@ observeEvent(input$checkpoint, {
 ```
 
 
-### Result analysis
+### Recorded Test Data
 
-The table and chart below display the decision boundaries in terms of z-scores along with the z-scores of any results entered to date.
+The table below displays the decision boundaries in terms of z-scores for each checkpoint along with the z-scores of any results recorded to date.
 
-
-```{r testanalysis}
-# Table
-div(class = "ztable", gt_output("resultTable"))
-
-# Confidence and Interval calculations only show if there is conclusive outcome
-div(class = "confidence",
-  div(class = "big",
-  textOutput("outcome")
-),
-div(class = "big",
-  textOutput("confidence")
-),
-div(class = "big",
-  textOutput("interval")
-),
-br(),
-# Clear results link
-#h4(actionLink("clear","Clear all results"))
-div(actionLink("clear","Clear all results"))
-)
-br()
-  
-# Boundary Plot
-div(class = "bounds",
-plotOutput("boundPlot")
-    )
-
-```
-
-
-```{r tableOutput, include=FALSE}
+```{r results_table_calc, include=FALSE}
 
 output$resultTable <- render_gt({
   req(input$numVars == 0)
@@ -1059,7 +1018,7 @@ output$resultTable <- render_gt({
 
 ```
 
-```{r clearResults, include=FALSE}
+```{r clearResults_calc, include=FALSE}
 # Clear all the reactive results variables (list)
 observeEvent(input$clear, {
   req(!is.null(reactiveResultsVars$rslt))
@@ -1070,43 +1029,28 @@ observeEvent(input$clear, {
 }, ignoreInit = TRUE)
 ```
 
-```{r confidenceCalcFunction, include=FALSE}
 
-# Function to accept results and configuration and to return a list payload with confidence and interval
-calcConfidence <- function(Ns, Zs, xA, xB, nA, nB, ciZ, tls) {
-  # Ns is list of sample sizes at check-ins, these are for 1 variation, not total
-  # Zs are the upper boundary z scores for all prior check-ins and the calculated z score for the last one
-  # xA is number of conversions in control
-  # xB is number of conversions in test
-  # nA is number of samples in control
-  # nB is number of samples in test
-  # ciZ is the upper boundary z score for the final check in point
-  # tls number of tails
-  
-  
-  # Adjusted p-value once a critical boundary has been crossed
-  probs <- gsProbability(k=length(Ns), theta=0, n.I=Ns, a=array(-20,length(Ns)),b=Zs)
-  pval <- sum(probs$upper$prob) * tls 
-  conf <- abs(round((1-pval)*100, digits=1))
-  textConf <- paste0(conf,'%')
-  
-  # Compute adjusted CI 
-  ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,
-                   alpha=tls*(1-pnorm(ciZ)))
+```{r results_table}
+# Table
+div(class = "ztable", gt_output("resultTable"))
 
-  ci$lower <- round(ci$lower/(xA/nA)*100, digits=1)
-  ci$upper <- round(ci$upper/(xA/nA)*100, digits=1)
-  
-  textLci <- paste0(ci$lower,'%')
-  textUci <- paste0(ci$upper,'%')
-  
-  # Compile payload
-  ciPayload <- list(textConf, textLci, textUci)
-  
-  return(
-    ciPayload
-    )
-}
+# Confidence and Interval calculations only show if there is conclusive outcome
+div(class = "confidence",
+br(),
+# Clear results link
+div(actionLink("clear","Clear all results"))
+)
+
+
+
+```
+
+
+Row {data-height=450}
+-----------------------------
+### Test Outcome
+
+``` {r test_outcome_observer, include = FALSE}
 
 # When there's an winning outcome declared, calculated confidence interval
 observeEvent(reactiveResultsVars$win$outcome, {
@@ -1125,17 +1069,42 @@ observeEvent(reactiveResultsVars$win$outcome, {
   nB <- reactiveResultsVars$rslt[[checkNum]][5] # number of samples in test
   ciZ <- reactiveDesignVars$table$upper[checkNumInt] # upper boundary z-score from original design for the most recent check-in point
   tls <- reactiveDesignVars$tls # tls number of tails
+  cvra <- xA/nA
+  cvrb <- xB/nB
   
-  # Call the CI function
-  ciCalc <- calcConfidence(Ns,Zs,xA,xB,nA,nB,ciZ,tls)
+  # Adjusted p-value once a critical boundary has been crossed
+  probs <- gsProbability(k=length(Ns), theta=0, n.I=Ns, a=array(-20,length(Ns)),b=Zs)
+  pval <- sum(probs$upper$prob) * tls 
+  conf <- abs(round((1-pval)*100, digits=4))
   
-  # Set the function payload to reactive variables
-  reactiveResultsVars$win$conf <- ciCalc[1] 
-  reactiveResultsVars$win$ciLow <- ciCalc[2]
-  reactiveResultsVars$win$ciHigh <- ciCalc[3]
+  # Compute adjusted CI 
+  ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,
+                   alpha=2*(1-pnorm(ciZ))) 
+  
+  ci <- ci/cvra
+  
+  # Add the observed effect
+  ci$mean <- cvrb/cvra-1
+  
+  # Make the text links
+  textConf <- paste0(conf,'%')
+  textLci <- paste0(round(ci$lower*100, digits=2),'%')
+  textUci <- paste0(round(ci$upper*100, digits=2),'%')
+  
+  print(textLci)
+  
+  
+  # Set the reactive variables on which the outputs rely
+  reactiveResultsVars$win$conf <- textConf 
+  reactiveResultsVars$win$ciLow <- textLci
+  reactiveResultsVars$win$ciHigh <- textUci
+  reactiveResultsVars$win$ciData <- ci
 
 }, ignoreInit = TRUE)
 
+```
+
+``` {r test_outcome_outputs, include = FALSE}
 # Outcome message
 output$outcome <- renderText({
   req(!is.null(reactiveResultsVars$win))
@@ -1147,30 +1116,91 @@ output$outcome <- renderText({
   }
 })
 
-# Confidence message if applicable (if win)
-output$confidence <- renderText({
-  req(!is.null(reactiveResultsVars$win$conf))
+
+# Default messaging
+output$results_default <- renderText({
+  req(is.null(reactiveResultsVars$win$ciData))
   
-  paste0("Confidence = ",reactiveResultsVars$win$conf[[1]])
+  "Once test results have been recorded and a decision boundary has been crossed and/or the max sample size has been reached, an outcome will appear here."
 })
 
-# Confidence interval message if applicable (if win)
-output$interval <- renderText({
-  req(!is.null(reactiveResultsVars$win$ciLow))
+# Confidence interval plot output definition
+output$ci_plot <- renderPlot({
+  req(!is.null(reactiveResultsVars$win$ciData))
   
-  paste("Estimated difference = ",reactiveResultsVars$win$ciLow," to ",reactiveResultsVars$win$ciHigh)
-})
+  ci <- reactiveResultsVars$win$ciData
+  
+  ci_labels <- c(paste0(round(ci$lower*100,2),"%"),paste0(round(ci$mean*100,2),"%"),paste0(round(ci$upper*100,2),"%"))
+  stat_sig_text <- paste0("Statistically significant at ",reactiveResultsVars$win$conf[[1]]," confidence")
+  
+  ggplot(ci, aes(x=mean, y=1)) +
+    annotate("text",
+             x=ci$mean,
+             y=1.8,
+             label="Confidence interval of effect",
+             fontface = "bold",
+             size = 5) +
+    annotate("text",
+             x=c(ci$lower,ci$mean,ci$upper),
+             y=1.45,
+             label=c("Lower","Observed","Upper"),
+             fontface = "bold",
+             size = 4) +
+    annotate("text",
+             x=c(ci$lower,ci$mean,ci$upper),
+             y=1.2,
+             label=ci_labels) +
+    geom_point() +
+    geom_errorbarh(aes(xmin=lower, xmax=upper, height=.1)) +
+    annotate("text",
+             x=ci$mean,
+             y=.5,
+             label=stat_sig_text,
+             size=4,
+             color="#01bfc4") +
+    geom_vline(xintercept = 0,
+               linetype = "dashed",
+               size = .25,
+               color = "#666666") +
+    annotate("text", x=0, y =.4, label="No effect", size = 3, angle = 90) +
+    scale_y_continuous(limits = c(0,2)) +
+    theme_minimal() +
+    theme(axis.line = element_blank(), axis.text = element_blank(), panel.grid = element_blank(), axis.title = element_blank(), aspect.ratio = .3)
+    
+}, height = 150)
 ```
 
-```{r resultsPlot, include=FALSE}
+
+```{r test_outcome_display}
+# Default, no-results message
+div(class = "results-default",
+  div(
+    textOutput("results_default")
+  )
+)
+
+# Confidence and Interval calculations only show if there is conclusive outcome
+div(class = "confidence",
+  div(class = "big",
+    textOutput("outcome")
+  )
+)
+
+# Confidence interval plot display
+div(class = "ci-plot",
+    plotOutput("ci_plot")
+    )
+
+```
+
+### Decision Boundary Chart
+```{r boundary_plot_calc, include=FALSE}
 output$boundPlot <- renderPlot({
   req(input$numVars == 0)
 
   df <- reactiveDesignVars$table$complete
   df$results[df$results == 0] <- NA 
   nperDay <- round(input$traff/input$dayNum)
-
-
 
   ggplot(df, aes(x = samples)) +
     geom_line(mapping = aes(y=upper), color = "cyan3") +
@@ -1200,12 +1230,19 @@ output$boundPlot <- renderPlot({
 
 ```
 
-Row {data-height=50}
+```{r boundary_plot_output}
+# Boundary Plot
+div(class = "bounds",
+plotOutput("boundPlot")
+    )
+```
+
+
+Row {data-height=30}
 -----------------------------
-v2.9 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v3.0 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
-
-Row {data-height=75}
+Row {data-height=80}
 -----------------------------
 
 ```{r technotes}
