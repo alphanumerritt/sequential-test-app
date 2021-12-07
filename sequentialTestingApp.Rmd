@@ -623,8 +623,7 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
          "early_lower_2tail" = "reject",
          "early_middle" = "continue"
          )
-      print(reactiveResultsVars$win$outcome)
-      print(reactiveResultsVars$status)
+
       if (reactiveResultsVars$win$outcome == "reject") {
         break
       } 
@@ -1059,7 +1058,7 @@ div(actionLink("clear","Clear all results"))
 ```
 
 
-Row {data-height=400}
+Row {data-height=425}
 -----------------------------
 ### Test Outcome
 
@@ -1114,25 +1113,11 @@ observeEvent(reactiveResultsVars$win$outcome, {
 ```
 
 ``` {r test_outcome_outputs, include = FALSE}
-# Outcome message
-# output$outcome <- renderText({
-#   req(!is.null(reactiveResultsVars$win))
-#   
-#   if (reactiveResultsVars$win$outcome == "efficacy") {
-#     return("The test experience has passed the efficacy boundary.")
-#   } else if (reactiveResultsVars$win$outcome == "futility") {
-#     return("The test experience has passed the futility boundary.")
-#   } else if (reactiveResultsVars$win$outcome == "inefficacy") {
-#     return("The test experience has passed the lower decision boundary.")
-#   }
-# })
-
 
 # Default messaging
 output$results_default <- renderText({
   req(is.null(reactiveResultsVars$win$ciData))
-  print(reactiveResultsVars$win$ciData)
-  
+
   "Once test results have been recorded and a decision boundary has been crossed and/or the max sample size has been reached, an outcome will appear here."
   
 })
@@ -1149,7 +1134,7 @@ output$ci_plot <- renderPlot({
   ggplot(ci, aes(x=mean, y=1)) +
     annotate("text",
              x=ci$mean,
-             y=1.8,
+             y=1.9,
              label="Confidence interval of effect (B/A-1)",
              fontface = "bold",
              size = 5) +
@@ -1230,7 +1215,7 @@ div(class = "advice",
 ```
 
 ### Decision Boundary Chart
-As results are recorded, the calculated test statistic (z-score) will appear on this chart. The actionable significance threshold will change depending on the checkpoint and sample size, with the bar lowering throughout the test. In other words, results will have to more extreme to end a test early.
+As results are recorded, the calculated test statistic (z-score) will appear on this chart. Boundaries will reset to fit sample sizes at each checkpoint.
 
 ```{r boundary_plot_calc, include=FALSE}
 output$boundPlot <- renderPlot({
