@@ -604,36 +604,31 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
     }
     
     # Evaluate results outcomes
-    tls_text <- if (reactiveDesignVars$tls == 1) "_1tail" else "_2tail" 
     for (i in 1:length(reactiveResultsVars$rslt)) {
+      tls_text <- if (reactiveDesignVars$tls == 1) "_1tail" else "_2tail" 
       rslt <- reactiveResultsVars$rslt[i]
       chk <- as.numeric(rslt[[1]][1])
       complete_text <- if (chk == input$checknum) "complete" else "early"
       zscr <- rslt[[1]][6]
       boundary <- if (zscr > testDesign$upper$bound[chk]) "_upper" else if (zscr < testDesign$lower$bound[chk]) "_lower" else "_middle"
-      reactiveResultsVars$status <- if (boundary == "_middle") paste0(complete_text,boundary) else paste0(complete_text,boundary,tls_text)
-      reactiveResultsVars$win$outcome <- if (boundary != "_middle")
-      
-      if (zscr > testDesign$upper$bound[chk]) {
-        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "efficacy")
+      reactiveResultsVars$status <- if (boundary == "_middle" || boundary == "_upper") paste0(complete_text,boundary) else paste0(complete_text,boundary,tls_text)
+      reactiveResultsVars$win$checkpoint <- chk
+      reactiveResultsVars$win$outcome <- switch(reactiveResultsVars$status,
+         "complete_upper" = "reject",
+         "complete_lower_2tail" = "reject",
+         "complete_lower_1tail" = "inconclusive",
+         "complete_middle" = "inconclusive",
+         "early_upper" = "reject",
+         "early_lower_1tail" = "option",
+         "early_lower_2tail" = "reject",
+         "early_middle" = "continue"
+         )
+      print(reactiveResultsVars$win$outcome)
+      print(reactiveResultsVars$status)
+      if (reactiveResultsVars$win$outcome == "reject") {
         break
-      } else if (zscr < testDesign$lower$bound[chk] && input$tls == 2) {
-        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "inefficacy")
-        break
-      } else if (zscr < testDesign$lower$bound[chk] && input$tls == 1) {
-        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "futility")
-      } else {
-        reactiveResultsVars$win <- list(checkpoint = chk, outcome = NULL)
-      }
+      } 
     }
-    # "complete_upper",
-    # "complete_lower_2tail",
-    # "complete_lower_1tail",
-    # "complete_middle",
-    # "early_upper",
-    # "early_lower_1tail",
-    # "early_lower_2tail",
-    # "early_middle" 
   }
   }, error = function(e) {
     showNotification("Whoops! How embarrassing. Seems you triggered an error. Pleast consider reporting the bug using the link at the bottom of this document.", type="error", duration = 5)
@@ -1071,28 +1066,38 @@ Row {data-height=400}
 ``` {r test_outcome_observer, include = FALSE}
 
 observeEvent(reactiveResultsVars$win$outcome, {
-  req(!is.null(reactiveResultsVars$win))
+  req(!is.null(reactiveResultsVars$win$outcome))
   
-  # Set all the variables needed
+  # Set key variables needed
   checkNum <- paste0("checkpoint",reactiveResultsVars$win$checkpoint)
   checkNumInt <- reactiveResultsVars$win$checkpoint
-  nList <- reactiveDesignVars$table$samples/2
-  winZ <- reactiveResultsVars$rslt[[checkNum]][6]
-  Ns <- if (checkNumInt == 1) nList[1] else c(nList[1:checkNumInt])# Ns is list of sample sizes at check-ins, these are for 1 variation, not total
-  Zs <- if (checkNumInt == 1) winZ else c(reactiveDesignVars$table$upper[1:(checkNumInt-1)],winZ) # upper boundary z-scores from test design up to most recent check-in, original z-scores for all but the most recent which is calculated z-score 
+  ciZ <- reactiveDesignVars$table$upper[checkNumInt] # upper boundary z-score from original design for the most recent check-in point
   xA <- reactiveResultsVars$rslt[[checkNum]][2] # number of conversions in control
   xB <- reactiveResultsVars$rslt[[checkNum]][4] # number of conversions in test
   nA <- reactiveResultsVars$rslt[[checkNum]][3] # number of samples in control
   nB <- reactiveResultsVars$rslt[[checkNum]][5] # number of samples in test
-  ciZ <- reactiveDesignVars$table$upper[checkNumInt] # upper boundary z-score from original design for the most recent check-in point
-  tls <- reactiveDesignVars$tls # tls number of tails
   cvra <- xA/nA
   cvrb <- xB/nB
   
-  # Adjusted p-value once a critical boundary has been crossed
-  probs <- gsProbability(k=length(Ns), theta=0, n.I=Ns, a=array(-20,length(Ns)),b=Zs)
-  pval <- sum(probs$upper$prob) * tls 
-  conf <- abs(round((1-pval)*100, digits=4))
+  # Calculate confidence if null rejected
+  if (reactiveResultsVars$win$outcome == "reject") {
+    # Set variables
+    nList <- reactiveDesignVars$table$samples/2
+    winZ <- reactiveResultsVars$rslt[[checkNum]][6]
+    Ns <- if (checkNumInt == 1) nList[1] else c(nList[1:checkNumInt])# Ns is list of sample sizes at check-ins, these are for 1 variation, not total
+    Zs <- if (checkNumInt == 1) winZ else c(reactiveDesignVars$table$upper[1:(checkNumInt-1)],winZ) # upper boundary z-scores from test design up to most recent check-in, original z-scores for all but the most recent which is calculated z-score 
+    tls <- reactiveDesignVars$tls # tls number of tails
+    
+    # Adjusted p-value once a critical boundary has been crossed
+    probs <- gsProbability(k=length(Ns), theta=0, n.I=Ns, a=array(-20,length(Ns)),b=Zs)
+    pval <- sum(probs$upper$prob) * tls 
+    conf <- abs(round((1-pval)*100, digits=4))
+    
+    # Make the text link for confidence level
+    textConf <- if (reactiveResultsVars$win$outcome == "reject") paste0(conf,'%') else NULL
+    reactiveResultsVars$win$conf <- textConf 
+    
+  }
   
   # Compute adjusted CI 
   ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,alpha=2*(1-pnorm(ciZ))) 
@@ -1101,11 +1106,7 @@ observeEvent(reactiveResultsVars$win$outcome, {
   # Add the observed effect
   ci$mean <- cvrb/cvra-1
   
-  # Make the text links
-  textConf <- if (reactiveResultsVars$win$outcome == "efficacy" || reactiveResultsVars$win$outcome == "inefficacy" ) paste0(conf,'%') else NULL
-  
-  # Set the reactive variables on which the outputs rely
-  reactiveResultsVars$win$conf <- textConf 
+  # Set the reactive variable for conf interval
   reactiveResultsVars$win$ciData <- ci
 
 }, ignoreInit = TRUE)

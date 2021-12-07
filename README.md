@@ -15,7 +15,7 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - v3.0 Dec 6, 2021
     - Major change to the display of test outcomes (post test and after decision boundary crossed)
     - Moved results analysis elements into different containers
-    - Resolved bug in confidence interval estimates
+    - Resolved bugs in confidence interval estimates
 - v2.9 Dec 5, 2021
     - Fixed power and sample plots for 2-tail tests
     - Added sample sizes to multiple comparison table
