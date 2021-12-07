@@ -544,7 +544,6 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
     if (is.null(reactiveResultsVars$rslt)) {
       testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum)
     } else  {
-      #req(reactiveDesignVars$seqn > reactiveResultsVars$rslt[[1]][[3]])
       testDesign <- createTest(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, reactiveDesignVars$tls, input$checknum, reactiveResultsVars$rslt)
     }
   
@@ -593,30 +592,48 @@ observeEvent(c(input$alpha, input$pwr, input$cvra, input$nonf, input$mde, input$
   )
   
 
-  # Evaluate results for boundary crossing
+  # Evaluate any results entered
   if (length(reactiveResultsVars$rslt) > 0) {
+    
+    # Add any z-scores in results column of design table
     for (i in 1:length(reactiveResultsVars$rslt)) {
       currRslt <- reactiveResultsVars$rslt[i]
       currChk <- currRslt[[1]][1]
       currZ <- currRslt[[1]][6]
-      # Add zscores to results table
       reactiveDesignVars$table$complete[currChk, 6] = currZ
     }
     
-    # Declare an outcome
+    # Evaluate results outcomes
+    tls_text <- if (reactiveDesignVars$tls == 1) "_1tail" else "_2tail" 
     for (i in 1:length(reactiveResultsVars$rslt)) {
       rslt <- reactiveResultsVars$rslt[i]
       chk <- as.numeric(rslt[[1]][1])
+      complete_text <- if (chk == input$checknum) "complete" else "early"
       zscr <- rslt[[1]][6]
+      boundary <- if (zscr > testDesign$upper$bound[chk]) "_upper" else if (zscr < testDesign$lower$bound[chk]) "_lower" else "_middle"
+      reactiveResultsVars$status <- if (boundary == "_middle") paste0(complete_text,boundary) else paste0(complete_text,boundary,tls_text)
+      reactiveResultsVars$win$outcome <- if (boundary != "_middle")
+      
       if (zscr > testDesign$upper$bound[chk]) {
-        reactiveResultsVars$win <-
-          list(checkpoint = chk, outcome = "efficacy")
+        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "efficacy")
         break
-      } else if (zscr < testDesign$lower$bound[chk]) {
-        reactiveResultsVars$win <-
-          list(checkpoint = chk, outcome = "futility")
+      } else if (zscr < testDesign$lower$bound[chk] && input$tls == 2) {
+        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "inefficacy")
+        break
+      } else if (zscr < testDesign$lower$bound[chk] && input$tls == 1) {
+        reactiveResultsVars$win <- list(checkpoint = chk, outcome = "futility")
+      } else {
+        reactiveResultsVars$win <- list(checkpoint = chk, outcome = NULL)
       }
     }
+    # "complete_upper",
+    # "complete_lower_2tail",
+    # "complete_lower_1tail",
+    # "complete_middle",
+    # "early_upper",
+    # "early_lower_1tail",
+    # "early_lower_2tail",
+    # "early_middle" 
   }
   }, error = function(e) {
     showNotification("Whoops! How embarrassing. Seems you triggered an error. Pleast consider reporting the bug using the link at the bottom of this document.", type="error", duration = 5)
@@ -1025,6 +1042,7 @@ observeEvent(input$clear, {
   
   reactiveResultsVars$rslt <- NULL
   reactiveResultsVars$win <- NULL
+  reactiveResultsVars$status <- NULL
   reactiveDesignVars$table$complete$results <- 0
 }, ignoreInit = TRUE)
 ```
@@ -1046,15 +1064,14 @@ div(actionLink("clear","Clear all results"))
 ```
 
 
-Row {data-height=450}
+Row {data-height=400}
 -----------------------------
 ### Test Outcome
 
 ``` {r test_outcome_observer, include = FALSE}
 
-# When there's an winning outcome declared, calculated confidence interval
 observeEvent(reactiveResultsVars$win$outcome, {
-  req(reactiveResultsVars$win$outcome == "efficacy")
+  req(!is.null(reactiveResultsVars$win))
   
   # Set all the variables needed
   checkNum <- paste0("checkpoint",reactiveResultsVars$win$checkpoint)
@@ -1078,26 +1095,17 @@ observeEvent(reactiveResultsVars$win$outcome, {
   conf <- abs(round((1-pval)*100, digits=4))
   
   # Compute adjusted CI 
-  ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,
-                   alpha=2*(1-pnorm(ciZ))) 
-  
+  ci <- ciBinomial(x1=xB, x2=xA, n1=nB, n2=nA,alpha=2*(1-pnorm(ciZ))) 
   ci <- ci/cvra
   
   # Add the observed effect
   ci$mean <- cvrb/cvra-1
   
   # Make the text links
-  textConf <- paste0(conf,'%')
-  textLci <- paste0(round(ci$lower*100, digits=2),'%')
-  textUci <- paste0(round(ci$upper*100, digits=2),'%')
-  
-  print(textLci)
-  
+  textConf <- if (reactiveResultsVars$win$outcome == "efficacy" || reactiveResultsVars$win$outcome == "inefficacy" ) paste0(conf,'%') else NULL
   
   # Set the reactive variables on which the outputs rely
   reactiveResultsVars$win$conf <- textConf 
-  reactiveResultsVars$win$ciLow <- textLci
-  reactiveResultsVars$win$ciHigh <- textUci
   reactiveResultsVars$win$ciData <- ci
 
 }, ignoreInit = TRUE)
@@ -1106,22 +1114,26 @@ observeEvent(reactiveResultsVars$win$outcome, {
 
 ``` {r test_outcome_outputs, include = FALSE}
 # Outcome message
-output$outcome <- renderText({
-  req(!is.null(reactiveResultsVars$win))
-  
-  if (reactiveResultsVars$win$outcome == "efficacy") {
-    return("The test experience has passed the efficacy boundary.")
-  } else {
-    return("The test experience has passed the futility boundary.")
-  }
-})
+# output$outcome <- renderText({
+#   req(!is.null(reactiveResultsVars$win))
+#   
+#   if (reactiveResultsVars$win$outcome == "efficacy") {
+#     return("The test experience has passed the efficacy boundary.")
+#   } else if (reactiveResultsVars$win$outcome == "futility") {
+#     return("The test experience has passed the futility boundary.")
+#   } else if (reactiveResultsVars$win$outcome == "inefficacy") {
+#     return("The test experience has passed the lower decision boundary.")
+#   }
+# })
 
 
 # Default messaging
 output$results_default <- renderText({
   req(is.null(reactiveResultsVars$win$ciData))
+  print(reactiveResultsVars$win$ciData)
   
   "Once test results have been recorded and a decision boundary has been crossed and/or the max sample size has been reached, an outcome will appear here."
+  
 })
 
 # Confidence interval plot output definition
@@ -1131,13 +1143,13 @@ output$ci_plot <- renderPlot({
   ci <- reactiveResultsVars$win$ciData
   
   ci_labels <- c(paste0(round(ci$lower*100,2),"%"),paste0(round(ci$mean*100,2),"%"),paste0(round(ci$upper*100,2),"%"))
-  stat_sig_text <- paste0("Statistically significant at ",reactiveResultsVars$win$conf[[1]]," confidence")
+  stat_sig_text <- if (!is.null(reactiveResultsVars$win$conf[[1]]))  paste0("Statistically significant at ", reactiveResultsVars$win$conf[[1]], " confidence") else " "
   
   ggplot(ci, aes(x=mean, y=1)) +
     annotate("text",
              x=ci$mean,
              y=1.8,
-             label="Confidence interval of effect",
+             label="Confidence interval of effect (B/A-1)",
              fontface = "bold",
              size = 5) +
     annotate("text",
@@ -1168,6 +1180,24 @@ output$ci_plot <- renderPlot({
     theme(axis.line = element_blank(), axis.text = element_blank(), panel.grid = element_blank(), axis.title = element_blank(), aspect.ratio = .3)
     
 }, height = 150)
+
+# Action advice message
+output$advice <- renderText({
+  req(!is.null(reactiveResultsVars$status))
+  
+  message <- switch(reactiveResultsVars$status,
+         "complete_upper" = "Maximum sample size has been reached. You should end the test and reject the null hypothesis. Congratulations on the win!",
+         "complete_lower_2tail" = "Maximum sample size has been reached. You should end the testand reject the null hypothesis. We hope it's a win!",
+         "complete_lower_1tail" = "Maximum sample size has been reached. You should end the test. Unfortunately, the results are inconclusive and you cannot reject the null hypothesis.",
+         "complete_middle" = "Maximum sample size has been reached. You should end the test. Unfortunately, the results are inconclusive and you cannot reject the null hypothesis.",
+         "early_upper" = "The test has crossed the upper decision boundary early. You should end the test and reject the null hypothesis. Congratulations on the win!",
+         "early_lower_1tail" = "The test has crossed the lower decision boundary early. In this case, you can end the test (80% power will be preserved on your MDE) or you can opt to continue the test which will serve to increase your power.",
+         "early_lower_2tail" = "The test has crossed the lower decision boundary early. You should end the test and reject the null hypothesis. We hope it's a win!",
+         "early_middle" = "The test has yet to cross a decision boundary. You should continue testing in order to achieve the planned statistical power."
+         )
+  
+  message
+})
 ```
 
 
@@ -1191,9 +1221,16 @@ div(class = "ci-plot",
     plotOutput("ci_plot")
     )
 
+# Advice message
+div(class = "advice",
+    textOutput("advice")
+)
+
 ```
 
 ### Decision Boundary Chart
+As results are recorded, the calculated test statistic (z-score) will appear on this chart. The actionable significance threshold will change depending on the checkpoint and sample size, with the bar lowering throughout the test. In other words, results will have to more extreme to end a test early.
+
 ```{r boundary_plot_calc, include=FALSE}
 output$boundPlot <- renderPlot({
   req(input$numVars == 0)
@@ -1207,7 +1244,7 @@ output$boundPlot <- renderPlot({
     geom_line(mapping = aes(y=lower), color = "brown1") +
     geom_line(mapping = aes(y=results), color = "chartreuse3", linetype = 2) +
     geom_ribbon(mapping = aes(ymin = min(lower), ymax = lower), fill = "brown1", alpha = .5) +
-        geom_ribbon(mapping = aes(ymin = upper, ymax = max(upper)), fill = "cyan3", alpha = .5) +
+    geom_ribbon(mapping = aes(ymin = upper, ymax = max(upper)), fill = "cyan3", alpha = .5) +
     geom_vline(xintercept = reactiveDesignVars$fixedn, size=.25, linetype = "dashed") +
     annotate(geom = "text", y = 1,
          x = reactiveDesignVars$fixedn * 1.02, 
@@ -1216,17 +1253,15 @@ output$boundPlot <- renderPlot({
          angle = 90,
          size = 4.0) +
     labs(y="Expected Sample Size") +
-    #geom_point(mapping = aes(y=results), color = "chartreuse3") +
     theme_light() +
     labs(x="Sample Size", y="Z-score") +
-    #scale_x_continuous(labels = scales::comma) +
     scale_x_continuous(sec.axis = sec_axis(~./nperDay, name = "Estimated Duration (Days)"), labels = scales::comma) +
     scale_y_continuous(n.breaks = 8) +
     geom_label(y=df$upper, label = round(df$upper,2)) +
     geom_label(y=df$lower, label = round(df$lower,2)) +
     geom_label(y=df$results, label = round(df$results,2), color = "chartreuse3")
     
-  }, height = 350)
+}, height = 350)
 
 ```
 

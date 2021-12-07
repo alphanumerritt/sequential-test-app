@@ -82,6 +82,16 @@ body {
   padding-top: 30px;
 }
 
+/* Action advice */
+.advice {
+  margin: auto;
+  text-align: center;
+  width: 75%;
+  padding-top: 15px;
+  font-size: 1.3em;
+  color: #666666;
+}
+
 /* Emphasized output text */
 .big {
 	font-size: 1.5em;
