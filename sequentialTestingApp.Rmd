@@ -147,8 +147,7 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           
           checkpoints <- dr$revised_n
           
-          print(checkpoints)
-        
+
         # Generates updated gsDesign object after results have been entered
 
         finalDesign <-
@@ -167,154 +166,12 @@ createTest <- function(a,b,c,d,e,f,g,h=NULL) {
           )
       } else {finalDesign <- design}
       
-      print(finalDesign$n.I)
-      
-
-
       # Returns the whole test design object (see gsDesign)
       return(finalDesign)
 
 }
 
 ```
-
-
-```{r wip, include=FALSE}
-# k_checks <- 8
-# n_sequential <- 10000
-# h <- list("checkpoint1" = c(2,200,1000,210,1100), "checkpoint5" = c(4,600,5000,680,5300)) 
-# 
-# 
-# dr <- data.frame(chkpt = c(1:k_checks)) %>% 
-#   mutate(planned_n = chkpt*(1/k_checks*n_sequential), 
-#          actual_n = 0
-#          )
-# 
-# for (i in 1:length(h)) {
-#   index <- h[[i]][1]
-#   index_n <- (h[[i]][3] + h[[i]][5])/2
-#   dr[index,3] <- index_n
-# }
-# 
-# # Use the planned_n for the last value if it's 0
-# dr <- dr %>% 
-#   mutate(working_n = actual_n)
-# 
-# if(dr$working_n[nrow(dr)] == 0){
-#   dr$working_n[nrow(dr)] <- dr$planned_n[nrow(dr)]
-# }
-# 
-# # Replace the 0s with NA
-# dr <- dr %>% 
-#   mutate(working_n = ifelse(working_n == 0, NA, working_n)) 
-# 
-# # Add a faux initial row with 0 for working_n
-# dr <- tibble(chkpt = 0,
-#              planned_n = 0,
-#              actual_n = 0,
-#              working_n = 0) %>% 
-#   bind_rows(dr) 
-# 
-# # Fill with the values so that we can get the before/after
-# dr <- dr %>% 
-#   fill(working_n, .direction = "down")
-# 
-# # Use lag to bring the "first value" next to the last value
-# dr <- dr %>% 
-#   mutate(starting_n = if_else(working_n == dplyr::lag(working_n, 1), 0, dplyr::lag(working_n, 1))) %>%
-#   # Do counts. This... assumes that all of the actual values for actual_n are unique, which may be a problem
-#   group_by(working_n) %>% 
-#   mutate(divisor = seq(1, n())) %>% 
-#   ungroup() %>% 
-#   # Shift those counts down by one
-#   mutate(divisor = dplyr::lag(divisor, 1)) %>% 
-#   # Figure out the base increment
-#   mutate(base_increment = ifelse(dplyr::lag(working_n, 1) != working_n, (working_n - starting_n) / divisor, NA)) %>% 
-#   # Go ahead and remove that dummy row
-#   filter(chkpt != 0) %>% 
-#   # Do another fill
-#   fill(base_increment, .direction = "up") %>% 
-#   # This would need some testing logic-wise, but it's close. We're going to bring
-#   # the "starting value" over as a pseudo-fill
-#   mutate(starting_n = if_else(lead(divisor, 1) == 1, starting_n, working_n)) %>% 
-#   # A hack... the last row is going to be NA because of 'lead', so fix that
-#   mutate(starting_n = if_else(is.na(starting_n), if_else(divisor == 1, dplyr::lag(working_n, 1), dplyr::lag(starting_n, 1)),starting_n)) %>% 
-#   # Calculate the final value
-#   mutate(revised_n = round(base_increment * divisor + starting_n)) %>% 
-#   # Clean up the interim values
-#   select(-working_n, -starting_n, -base_increment, -divisor)
-# 
-# checkpoints <- dr$revised_n
-# 
-# print(checkpoints)
-```
-
-
-```{r scratchpad2tim, include=FALSE}
-# #library(tidyverse)
-# 
-# # Step 1. Let's call this "the plan"
-# dr <- data.frame(chkpt = c(1:8), planned_n = seq(1000,8000,1000),actual_n = 0)
-# 
-# # Step 2. Data comes in after in any sequence and some rows will be 
-# # missing, but will be guaranteed that each row will be > any previous 
-# # rows (except those where no data has been entered)
-# input <- "dr[c(8),3] <- c(6000)"
-# eval(parse(text=input))
-# 
-# # Use the planned_n for the last value if it's 0
-# dr <- dr %>% 
-#   mutate(working_n = actual_n)
-# 
-# if(dr$working_n[nrow(dr)] == 0){
-#   dr$working_n[nrow(dr)] <- dr$planned_n[nrow(dr)]
-# }
-# 
-# # Replace the 0s with NA
-# dr <- dr %>% 
-#   mutate(working_n = ifelse(working_n == 0, NA, working_n)) 
-# 
-# # Add a faux initial row with 0 for working_n
-# dr <- tibble(chkpt = 0,
-#              planned_n = 0,
-#              actual_n = 0,
-#              working_n = 0) %>% 
-#   bind_rows(dr) 
-# 
-# # Fill with the values so that we can get the before/after
-# dr <- dr %>% 
-#   fill(working_n, .direction = "down")
-# 
-# # Use lag to bring the "first value" next to the last value
-# dr <- dr %>% 
-#   mutate(starting_n = if_else(working_n == dplyr::lag(working_n, 1), 0, dplyr::lag(working_n, 1))) %>%
-#   # Do counts. This... assumes that all of the actual values for actual_n are unique, which may be a problem
-#   group_by(working_n) %>% 
-#   mutate(divisor = seq(1, n())) %>% 
-#   ungroup() %>% 
-#   # Shift those counts down by one
-#   mutate(divisor = dplyr::lag(divisor, 1)) %>% 
-#   # Figure out the base increment
-#   mutate(base_increment = ifelse(dplyr::lag(working_n, 1) != working_n, (working_n - starting_n) / divisor, NA)) %>% 
-#   # Go ahead and remove that dummy row
-#   filter(chkpt != 0) %>% 
-#   # Do another fill
-#   fill(base_increment, .direction = "up") %>% 
-#   # This would need some testing logic-wise, but it's close. We're going to bring
-#   # the "starting value" over as a pseudo-fill
-#   mutate(starting_n = if_else(lead(divisor, 1) == 1, starting_n, working_n)) %>% 
-#   # A hack... the last row is going to be NA because of 'lead', so fix that
-#   mutate(starting_n = if_else(is.na(starting_n), if_else(divisor == 1, dplyr::lag(working_n, 1), dplyr::lag(starting_n, 1)),starting_n)) %>% 
-#   # Calculate the final value
-#   mutate(revised_n = round(base_increment * divisor + starting_n)) %>% 
-#   # Clean up the interim values
-#   select(-working_n, -starting_n, -base_increment, -divisor)
-# 
-# input
-# dr
-
-```
-
 
 ```{r shortcut_display}
 
