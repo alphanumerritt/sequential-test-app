@@ -30,6 +30,11 @@ body {
 
 }
 
+/* Notification styling like errors and warnings */
+.shiny-notification {
+  font-size: 1.5em;
+}
+
 /* Divs intended to fit 3 side-by-side like results inputs */
 .three-c {
 	display: inline-block;
