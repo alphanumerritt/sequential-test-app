@@ -30,11 +30,16 @@ body {
 
 }
 
+/* Notification styling like errors and warnings */
+.shiny-notification {
+  font-size: 1.5em;
+}
+
 /* Divs intended to fit 3 side-by-side like results inputs */
 .three-c {
 	display: inline-block;
-	margin: 10px 0 10px 10px;
-	width: 25% !important;
+	margin: 0px 0px 0px 10px;
+	width: 30% !important;
 }
 
 /* Quick load elements */
@@ -44,10 +49,11 @@ body {
 }
 
 /* Checkpoint selector + CTA in Results */
-.slider {
+.chkpt-selector {
 /*	width: 50% !important;*/
 	vertical-align: top;
 	margin: 10px auto;
+	padding-left: 15px;
 /*	text-align: center;*/
 }
 
@@ -69,6 +75,26 @@ body {
   font-size: 16px;
   padding: 30px;
   font-weight: 700;
+}
+
+/* Default messaging for results outcome */
+.results-default {
+  font-size: 1.75em;
+  color: #666666;
+  margin: auto;
+  text-align: center;
+  width: 75%;
+  padding-top: 30px;
+}
+
+/* Action advice */
+.advice {
+  margin: auto;
+  text-align: center;
+  width: 75%;
+  padding-top: 15px;
+  font-size: 1.3em;
+  color: #666666;
 }
 
 /* Emphasized output text */
@@ -103,11 +129,6 @@ p, a, body {
   font-size: 16px;
   color: #2780e3;
   font-weight: 400;
-}
-
-/* pdf button */
-#exportpdf {
-	margin: 15px;
 }
 
 /* Main results output */
@@ -166,7 +187,7 @@ h5 {
 .confidence {
 	max-width: 500px;
 	margin: auto;
-	text-align: right;
+	text-align: center;
 }
 
 /* Overall app title
