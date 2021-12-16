@@ -229,6 +229,12 @@ observeEvent(input$loadShortcut, {
   shortcutList <- unlist(strsplit(input$shortcut,","))
   req(length(shortcutList) > 9)
   
+  # Empty out results
+  global_results$rslt <- NULL
+  global_results$win <- NULL
+  global_results$status <- NULL
+  global_design$table$complete$results <- 0
+  
   # Update all the inputs with the string values
   updateSliderInput(session, 'alpha', value = shortcutList[1])
   updateSliderInput(session, 'pwr', value = shortcutList[2])
@@ -255,6 +261,7 @@ observeEvent(input$loadShortcut, {
       r4[[rl]] <- r3 # add label to checkpoint results and add to list
     }
     global_results$rslt <- r4
+    global_results$tgl <- global_results$tgl * -1
     
   }
 
@@ -520,14 +527,34 @@ Row {data-height=150}
 
 ##### How many times do you want to "peek" and analyze test results? (max 18)
 
+
+```{r checkpoint_reco_output, include=FALSE}
+output$checkpoint_reco <- renderUI({
+
+  recommendation <- round(global_design$seqn/(input$traff/input$dayNum)/7)
+  output_message <- div(id = "checkpoint_reco",
+      "1 checkpoint per week is a good rule of thumb. Based on expected duration,",
+      tags$b("we suggest ",
+      recommendation,
+      "checpoints."
+      )
+      )  
+ 
+  # If multiple testing, then nothing, if not
+  if (input$numVars < 1) output_message
+})
+
+```
+
 ```{r checkpoint_input}
 div(
 div(style="display:inline-block;", numericInput(
   "checknum", label = NULL, min = 2, max = 18, value = 4, step = 1, width = 100
 )),
-div(style="display:inline-block; padding-left: 5px;", "(Including final analysis)"))
-```
+div(style="display:inline-block; padding-left: 5px;", "(Including final analysis)"),
+htmlOutput("checkpoint_reco"))
 
+```
 
 ```{r test_data_observer, include=FALSE}
 # CREATE SEQUENTIAL TEST DESIGN
@@ -1273,7 +1300,7 @@ plotOutput("boundPlot")
 
 Row {data-height=30}
 -----------------------------
-v3.0 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v3.1 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 Row {data-height=80}
 -----------------------------
