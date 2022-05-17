@@ -12,6 +12,8 @@ This application allows you to peek responsibly by adjusting test statistics to 
 - Adjusted boundary values for multiple testing scenarios (multiple variants or metrics)
 
 ## Version history
+- v3.21 - May 17, 2022
+    - Updated nav links
 - v3.2 Jan 22, 2022
     - Fixed label over sample sizes for the multiple comparisons table. "Max" was corrected to "Min".
 - v3.1 Dec 16, 2021
