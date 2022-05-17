@@ -9,11 +9,13 @@ output:
     favicon: favicon.png
     fig_height: 1
     navbar: 
-      - { title: "Results Analysis", href: "https://sdidev.shinyapps.io/ABTestAnalysis/" }
-      - { title: "Sample Size", href: "https://sdidev.shinyapps.io/sample-size-calculator/" }
-      - { title: "Runtime", href: "https://sdidev.shinyapps.io/sample-size-calculator-runtime/" }
-      - { title: "Impact Simulation", href: "https://sdidev.shinyapps.io/test-result-simulator/" }
-      - { title: "Experimentation ROI", "href:https://sdidev.shinyapps.io/experimentation-roi/" }
+      - { title: "Planning: MDE-Based Calculator", href: "https://sdidev.shinyapps.io/sample-size-calculator/" }
+      - { title: "Planning: Runtime-Based Calculator", href: "https://sdidev.shinyapps.io/sample-size-calculator-runtime/" }
+      - { title: "Planning/Analysis: Sequential Testing", href: "https://sdidev.shinyapps.io/sequential-test-calculator/" }
+      - { title: "Analysis: Test Results Assessment", href: "https://sdidev.shinyapps.io/ABTestAnalysis/" }
+      - { title: "Analysis: Bayesian Testing", href: "https://sdidev.shinyapps.io/bayesian-ab-app/" }
+      - { title: "Simulator: A/B Test Result", href: "https://sdidev.shinyapps.io/test-result-simulator/" }
+      - { title: "Simulator: Experimentation ROI", href: "https://sdidev.shinyapps.io/experimentation-roi/" }
 runtime: shiny
 ---
 
@@ -502,7 +504,7 @@ output$adjBounds <- render_gt({
                contains("zscor") ~ px(70)
                ) %>% 
     cols_label(checkpoints = "",
-               maxSample = "(Max) Sample Size Per Variant",
+               maxSample = "Minimum Sample Size Per Variant",
                origZscors = "Old Boundary") %>%
     tab_options(
       container.height = 275,
@@ -533,10 +535,10 @@ output$checkpoint_reco <- renderUI({
 
   recommendation <- round(global_design$seqn/(input$traff/input$dayNum)/7)
   output_message <- div(id = "checkpoint_reco",
-      "1 checkpoint per week is a good rule of thumb. Based on expected duration,",
+      "One checkpoint per week is a good rule of thumb. Based on expected duration,",
       tags$b("we suggest ",
       recommendation,
-      "checpoints."
+      "checkpoints."
       )
       )  
  
@@ -1300,7 +1302,7 @@ plotOutput("boundPlot")
 
 Row {data-height=30}
 -----------------------------
-v3.1 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
+v3.21 - Thanks for using! For version history, to report bugs and submit feature requests [click here](https://github.com/alphanumerritt/sequential-test-app/issues){target="_blank"}.
 
 Row {data-height=80}
 -----------------------------
